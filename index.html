@@ -1,6 +1,6 @@
 .goast-logo {
                 height: 24px;
-                max-width: 120px;
+                max-width: 160px;
             }<!DOCTYPE html>
 <html>
 <head>
@@ -66,20 +66,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 16px;
+            padding: 8px 20px;
             background: white;
             color: black;
             border: 2px solid black;
             border-radius: 8px;
             transition: all 0.3s ease;
             cursor: pointer;
+            min-height: 48px;
         }
         
         .goast-logo {
             height: 32px;
             width: auto;
-            max-width: 200px;
+            max-width: 250px;
             transition: all 0.3s ease;
+            object-fit: contain;
         }
         
         .goast-link a:hover {
@@ -343,12 +345,13 @@
             
             .goast-link a {
                 font-size: 14px;
-                padding: 6px 12px;
+                padding: 6px 16px;
+                min-height: 44px;
             }
             
             .goast-logo {
                 height: 28px;
-                max-width: 150px;
+                max-width: 200px;
             }
             
             .search-container {
