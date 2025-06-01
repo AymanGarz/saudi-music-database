@@ -562,9 +562,80 @@
                 this.currentTab = 'database';
                 this.searchTimeout = null;
                 this.isLoading = false;
-                this.cachedArtists = null;
-                this.cachedOpportunities = null;
+                
+                // ENTERPRISE CACHING SYSTEM
+                this.cache = new Map();
+                this.activeRequests = new Map(); // Request deduplication
+                this.cacheConfig = null; // Track config changes
+                this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+                
                 this.init();
+            }
+            
+            // Generate cache key with config versioning
+            getCacheKey(sheetName) {
+                const configHash = this.hashConfig();
+                return `${sheetName}_${configHash}`;
+            }
+            
+            // Hash config to detect changes
+            hashConfig() {
+                const configStr = `${CONFIG.SHEET_ID}_${CONFIG.API_KEY}_${CONFIG.ARTISTS_SHEET}_${CONFIG.OPPORTUNITIES_SHEET}`;
+                // Simple hash function (for production, use crypto.subtle)
+                let hash = 0;
+                for (let i = 0; i < configStr.length; i++) {
+                    const char = configStr.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32-bit integer
+                }
+                return hash.toString();
+            }
+            
+            // Check if cache is valid
+            isCacheValid(cacheKey) {
+                const cached = this.cache.get(cacheKey);
+                if (!cached) return false;
+                
+                const now = Date.now();
+                const isExpired = (now - cached.timestamp) > this.CACHE_TTL;
+                const isConfigChanged = this.cacheConfig !== this.hashConfig();
+                
+                if (isExpired || isConfigChanged) {
+                    this.cache.delete(cacheKey);
+                    return false;
+                }
+                
+                return cached.data && Array.isArray(cached.data) && cached.isRealData;
+            }
+            
+            // Set cache with metadata
+            setCache(cacheKey, data, isRealData = true) {
+                this.cache.set(cacheKey, {
+                    data: data,
+                    timestamp: Date.now(),
+                    isRealData: isRealData,
+                    configHash: this.hashConfig()
+                });
+                this.cacheConfig = this.hashConfig();
+            }
+            
+            // Get cached data
+            getCache(cacheKey) {
+                if (this.isCacheValid(cacheKey)) {
+                    const cached = this.cache.get(cacheKey);
+                    console.log(`Cache HIT: ${cacheKey} (${cached.data.length} items, age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
+                    return cached.data;
+                }
+                console.log(`Cache MISS: ${cacheKey}`);
+                return null;
+            }
+            
+            // Clear all cache
+            clearCache() {
+                console.log('Clearing all cache');
+                this.cache.clear();
+                this.activeRequests.clear();
+                this.cacheConfig = null;
             }
             
             init() {
@@ -679,95 +750,124 @@
             }
             
             async loadAllArtists() {
-                if (this.isLoading) return;
+                return this.loadSheetData(CONFIG.ARTISTS_SHEET, 'results');
+            }
+            
+            async loadAllOpportunities() {
+                return this.loadSheetData(CONFIG.OPPORTUNITIES_SHEET, 'opportunities');
+            }
+            
+            // ENTERPRISE DATA LOADING WITH REQUEST DEDUPLICATION
+            async loadSheetData(sheetName, displayType) {
+                const cacheKey = this.getCacheKey(sheetName);
+                
+                // Check cache first
+                const cachedData = this.getCache(cacheKey);
+                if (cachedData) {
+                    this.displayResults(cachedData, displayType);
+                    return cachedData;
+                }
+                
+                // Request deduplication - prevent multiple simultaneous requests
+                if (this.activeRequests.has(cacheKey)) {
+                    console.log(`Request already in progress for ${cacheKey}, waiting...`);
+                    return this.activeRequests.get(cacheKey);
+                }
+                
+                // Create and track the request
+                const requestPromise = this._performDataLoad(sheetName, displayType, cacheKey);
+                this.activeRequests.set(cacheKey, requestPromise);
                 
                 try {
-                    this.isLoading = true;
-                    this.showLoading('results', 'Loading all artists...');
+                    const result = await requestPromise;
+                    return result;
+                } finally {
+                    // Always clean up active request
+                    this.activeRequests.delete(cacheKey);
+                }
+            }
+            
+            async _performDataLoad(sheetName, displayType, cacheKey) {
+                try {
+                    this.showLoading(displayType, `Loading ${sheetName}...`);
                     
-                    // Check if credentials are properly configured
+                    // Check if we have valid configuration
                     const hasValidConfig = CONFIG.SHEET_ID && CONFIG.API_KEY && 
                                           CONFIG.SHEET_ID !== 'YOUR_GOOGLE_SHEET_ID_HERE' && 
                                           CONFIG.API_KEY !== 'YOUR_GOOGLE_API_KEY_HERE';
                     
-                    // Only use cache if we have valid config AND cached data exists
-                    if (hasValidConfig && this.cachedArtists && this.cachedArtists.length > 3) {
-                        console.log('Using cached real data:', this.cachedArtists.length, 'artists');
-                        this.displayResults(this.cachedArtists, 'results');
-                        this.isLoading = false;
-                        return;
-                    }
-                    
-                    // If no valid config, clear any existing cache and use fallback
                     if (!hasValidConfig) {
-                        console.log('No valid config - clearing cache and using fallback');
-                        this.cachedArtists = null;
-                        const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
-                        this.displayResults(fallbackData, 'results');
-                        this.isLoading = false;
-                        return;
+                        console.log('Invalid configuration, using fallback data');
+                        const fallbackData = this.getFallbackData(sheetName);
+                        this.setCache(cacheKey, fallbackData, false); // Mark as fallback
+                        this.displayResults(fallbackData, displayType);
+                        return fallbackData;
                     }
                     
-                    // Fetch fresh data from API
-                    console.log('Fetching fresh data from Google Sheets API...');
-                    const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
+                    // Fetch fresh data
+                    console.log(`Fetching fresh data for ${sheetName}...`);
+                    const data = await this.fetchSheetData(sheetName);
                     
-                    // Validate we got real data (not fallback)
-                    if (data && data.length > 10) {
-                        console.log('Successfully loaded', data.length, 'artists from API');
-                        this.cachedArtists = data;
-                        this.displayResults(data, 'results');
+                    // Validate data quality
+                    const isRealData = this.validateDataQuality(data, sheetName);
+                    
+                    if (isRealData) {
+                        console.log(`Successfully loaded ${data.length} real items from ${sheetName}`);
+                        this.setCache(cacheKey, data, true);
+                        this.displayResults(data, displayType);
+                        return data;
                     } else {
-                        console.log('API returned insufficient data, using fallback');
-                        this.cachedArtists = null;
-                        const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
-                        this.displayResults(fallbackData, 'results');
+                        console.log(`Data quality check failed for ${sheetName}, using fallback`);
+                        const fallbackData = this.getFallbackData(sheetName);
+                        this.setCache(cacheKey, fallbackData, false);
+                        this.displayResults(fallbackData, displayType);
+                        return fallbackData;
                     }
-                    
-                    this.isLoading = false;
                     
                 } catch (error) {
-                    console.error('Error loading artists:', error);
-                    this.isLoading = false;
-                    this.displayError('Failed to load artists. Using sample data.', 'results');
+                    console.error(`Error loading ${sheetName}:`, error);
+                    this.displayError(`Failed to load ${sheetName}. Using sample data.`, displayType);
                     
-                    // Clear bad cache and show fallback
-                    this.cachedArtists = null;
-                    const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
-                    this.displayResults(fallbackData, 'results');
+                    const fallbackData = this.getFallbackData(sheetName);
+                    this.setCache(cacheKey, fallbackData, false);
+                    this.displayResults(fallbackData, displayType);
+                    return fallbackData;
                 }
             }
             
-            async loadAllOpportunities() {
-                if (this.isLoading) return;
-                
-                try {
-                    this.isLoading = true;
-                    this.showLoading('opportunities', 'Loading opportunities...');
-                    
-                    if (this.cachedOpportunities) {
-                        this.displayResults(this.cachedOpportunities, 'opportunities');
-                        this.isLoading = false;
-                        return;
-                    }
-                    
-                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
-                    this.cachedOpportunities = data;
-                    this.displayResults(data, 'opportunities');
-                    this.isLoading = false;
-                    
-                } catch (error) {
-                    console.error('Error loading opportunities:', error);
-                    this.isLoading = false;
-                    this.displayError('Failed to load opportunities. Using sample data.', 'opportunities');
-                    
-                    const fallbackData = this.getFallbackData(CONFIG.OPPORTUNITIES_SHEET);
-                    this.displayResults(fallbackData, 'opportunities');
+            // Validate data quality instead of magic numbers
+            validateDataQuality(data, sheetName) {
+                if (!Array.isArray(data) || data.length === 0) {
+                    return false;
                 }
+                
+                // Check if this looks like fallback data
+                const fallbackData = this.getFallbackData(sheetName);
+                if (data.length === fallbackData.length) {
+                    // Compare first row to detect fallback data
+                    const firstRow = data[0] || [];
+                    const firstFallbackRow = fallbackData[0] || [];
+                    
+                    if (firstRow[0] === firstFallbackRow[0]) {
+                        console.log('Data appears to be fallback data based on content comparison');
+                        return false;
+                    }
+                }
+                
+                // For artists sheet, expect reasonable number of entries
+                if (sheetName === CONFIG.ARTISTS_SHEET && data.length < 10) {
+                    console.log(`Suspiciously low artist count: ${data.length}`);
+                    return false;
+                }
+                
+                return true;
             }
             
             performSearch() {
-                if (this.isLoading) return;
+                if (this.activeRequests.size > 0) {
+                    console.log('Search blocked: API requests in progress');
+                    return;
+                }
                 
                 try {
                     const filters = [];
@@ -788,9 +888,12 @@
                         return;
                     }
                     
-                    // Filter cached data
-                    if (this.cachedArtists) {
-                        const filtered = this.cachedArtists.filter(row => {
+                    // Get cached data for filtering
+                    const cacheKey = this.getCacheKey(CONFIG.ARTISTS_SHEET);
+                    const cachedData = this.getCache(cacheKey);
+                    
+                    if (cachedData) {
+                        const filtered = cachedData.filter(row => {
                             return filters.every((filter, index) => {
                                 const trimmedFilter = String(filter || '').trim();
                                 
@@ -811,6 +914,9 @@
                         });
                         
                         this.displayResults(filtered, 'results');
+                    } else {
+                        // No cached data, load first
+                        this.loadAllArtists();
                     }
                     
                 } catch (error) {
