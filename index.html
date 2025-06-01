@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+            }<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -614,7 +615,7 @@
                     const range = `${sheetName}!A:H`; // Fetch columns A through H
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(range)}?key=${CONFIG.API_KEY}`;
                     
-                    console.log('Fetching data from:', url);
+                    console.log('Fetching data from Google Sheets API...');
                     
                     const response = await fetch(url);
                     
@@ -625,7 +626,7 @@
                     }
                     
                     const data = await response.json();
-                    console.log('Raw API response:', data);
+                    console.log('Raw API response received:', data.values ? data.values.length : 0, 'rows');
                     
                     // Convert to format and filter empty rows
                     if (data.values && data.values.length > 1) {
@@ -640,15 +641,22 @@
                                 return paddedRow;
                             });
                         
-                        console.log(`Processed ${processedData.length} rows from ${sheetName}`);
+                        console.log(`Successfully processed ${processedData.length} rows from ${sheetName}`);
+                        
+                        // Additional validation - ensure we got real data
+                        if (processedData.length < 5) {
+                            console.warn('Suspiciously low data count, may be API issue');
+                        }
+                        
                         return processedData;
                     }
                     
-                    console.log('No data found in sheet');
-                    return [];
+                    console.log('No data found in sheet, using fallback');
+                    return this.getFallbackData(sheetName);
                     
                 } catch (error) {
                     console.error('Error fetching sheet data:', error);
+                    console.log('Falling back to sample data due to error');
                     return this.getFallbackData(sheetName);
                 }
             }
@@ -678,16 +686,45 @@
                     this.isLoading = true;
                     this.showLoading('results', 'Loading all artists...');
                     
-                    // Use cached data if available
-                    if (this.cachedArtists) {
+                    // Check if credentials are properly configured
+                    const hasValidConfig = CONFIG.SHEET_ID && CONFIG.API_KEY && 
+                                          CONFIG.SHEET_ID !== 'YOUR_GOOGLE_SHEET_ID_HERE' && 
+                                          CONFIG.API_KEY !== 'YOUR_GOOGLE_API_KEY_HERE';
+                    
+                    // Only use cache if we have valid config AND cached data exists
+                    if (hasValidConfig && this.cachedArtists && this.cachedArtists.length > 3) {
+                        console.log('Using cached real data:', this.cachedArtists.length, 'artists');
                         this.displayResults(this.cachedArtists, 'results');
                         this.isLoading = false;
                         return;
                     }
                     
+                    // If no valid config, clear any existing cache and use fallback
+                    if (!hasValidConfig) {
+                        console.log('No valid config - clearing cache and using fallback');
+                        this.cachedArtists = null;
+                        const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
+                        this.displayResults(fallbackData, 'results');
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    // Fetch fresh data from API
+                    console.log('Fetching fresh data from Google Sheets API...');
                     const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
-                    this.cachedArtists = data;
-                    this.displayResults(data, 'results');
+                    
+                    // Validate we got real data (not fallback)
+                    if (data && data.length > 10) {
+                        console.log('Successfully loaded', data.length, 'artists from API');
+                        this.cachedArtists = data;
+                        this.displayResults(data, 'results');
+                    } else {
+                        console.log('API returned insufficient data, using fallback');
+                        this.cachedArtists = null;
+                        const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
+                        this.displayResults(fallbackData, 'results');
+                    }
+                    
                     this.isLoading = false;
                     
                 } catch (error) {
@@ -695,7 +732,8 @@
                     this.isLoading = false;
                     this.displayError('Failed to load artists. Using sample data.', 'results');
                     
-                    // Show fallback data
+                    // Clear bad cache and show fallback
+                    this.cachedArtists = null;
                     const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
                     this.displayResults(fallbackData, 'results');
                 }
