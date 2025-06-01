@@ -1,177 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Saudi Music Community Database</title>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-green: #1a472a;
-            --secondary-green: #2d5e3a;
-            --gold: #d4af37;
-            --light-brown: #8b7355;
-            --bg-light: #f7f4f0;
-            --bg-secondary: #ede7df;
-            --shadow-primary: rgba(26, 71, 42, 0.1);
-        }
-        
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Tajawal', 'Cairo', 'Arial', sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, var(--bg-light) 0%, var(--bg-secondary) 100%);
-            min-height: 100vh;
-            line-height: 1.6;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Instagram Browser Warning Styles */
-        .instagram-warning {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1a472a 0%, #2d5e3a 100%);
-            color: white;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            font-family: 'Tajawal', Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        
-        .warning-content {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 20px;
-            max-width: 400px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .warning-title {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: var(--gold);
-            font-weight: 700;
-        }
-        
-        .warning-steps {
-            text-align: left;
-            margin: 20px 0;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        
-        .warning-steps li {
-            margin: 10px 0;
-            padding-left: 10px;
-        }
-        
-        .continue-btn {
-            background: var(--gold);
-            color: var(--primary-green);
-            border: none;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 20px 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .continue-btn:hover {
-            background: #f4d03f;
-            transform: translateY(-2px);
-        }
-        
-        .copy-btn {
-            background: transparent;
-            color: white;
-            border: 2px solid white;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 14px;
-            cursor: pointer;
-            margin: 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .copy-btn:hover {
-            background: white;
-            color: var(--primary-green);
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-            color: var(--primary-green);
-        }
-        
-        .header h1 {
-            font-family: 'Amiri', 'Times New Roman', serif;
-            background: linear-gradient(45deg, var(--primary-green), var(--secondary-green));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-size: clamp(2rem, 5vw, 2.8rem);
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-        
-        .goast-link {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 15px 0 25px 0;
-        }
-        
-        .goast-link a {
-            text-decoration: none;
-            display: block;
-            padding: 12px 24px;
-            background: white;
-            color: black;
-            border: 2px solid black;
-            border-radius: 8px;
-            font-family: 'Tajawal', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
         .goast-link a:hover {
             background: #f0f0f0;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        
-        .demo-banner {
-            background: linear-gradient(45deg, var(--gold), #f4d03f);
-            color: var(--primary-green);
-            text-align: center;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            border: 2px solid var(--primary-green);
         }
         
         .tab-container {
@@ -372,7 +202,6 @@
             background: linear-gradient(145deg, #f9f7f4, #f1ede8);
         }
         
-        /* Link styles for table cells */
         .results-table td a {
             color: var(--primary-green);
             text-decoration: none;
@@ -393,12 +222,6 @@
             box-shadow: 0 2px 6px rgba(26, 71, 42, 0.3);
         }
         
-        .results-table td a:focus {
-            outline: 2px solid var(--gold);
-            outline-offset: 2px;
-        }
-        
-        /* Email link specific styling */
         .results-table td a[href^="mailto:"] {
             background: rgba(212, 175, 55, 0.1);
             border-color: rgba(212, 175, 55, 0.3);
@@ -420,6 +243,17 @@
         
         .loading {
             color: var(--primary-green);
+        }
+        
+        .github-notice {
+            background: linear-gradient(45deg, var(--gold), #f4d03f);
+            color: var(--primary-green);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
         }
         
         /* Mobile responsiveness */
@@ -454,10 +288,6 @@
                 font-size: 16px;
             }
             
-            .results-container {
-                overflow-x: visible;
-            }
-            
             .results-table {
                 font-size: 12px;
             }
@@ -477,19 +307,6 @@
                 padding: 2px 4px;
                 font-size: 11px;
             }
-            
-            .warning-content {
-                padding: 20px;
-                margin: 20px;
-            }
-            
-            .warning-title {
-                font-size: 20px;
-            }
-            
-            .warning-steps {
-                font-size: 14px;
-            }
         }
         
         @media (max-width: 480px) {
@@ -506,36 +323,6 @@
     </style>
 </head>
 <body>
-    <!-- Instagram Browser Warning Modal -->
-    <div id="instagram-warning" class="instagram-warning">
-        <div class="warning-content">
-            <div class="warning-title">🎵 Saudi Music Community Database</div>
-            <p style="font-size: 18px; margin-bottom: 20px;">📱 For the best experience, please open in your browser</p>
-            
-            <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
-                <strong>Quick Steps:</strong>
-                <ol class="warning-steps">
-                    <li>Tap the <strong>"⋯"</strong> (three dots) in the top right</li>
-                    <li>Select <strong>"Open in Browser"</strong></li>
-                    <li>Choose Safari, Chrome, or your default browser</li>
-                </ol>
-            </div>
-            
-            <div style="margin: 20px 0;">
-                <button class="continue-btn" onclick="hideInstagramWarning()">
-                    Continue Anyway
-                </button>
-                <button class="copy-btn" onclick="copyCurrentUrl()">
-                    📋 Copy Link
-                </button>
-            </div>
-            
-            <p style="font-size: 12px; opacity: 0.8; margin-top: 15px;">
-                Some features may not work properly in Instagram's browser
-            </p>
-        </div>
-    </div>
-
     <div class="header">
         <h1>🎵 Saudi Music Community Database</h1>
     </div>
@@ -546,9 +333,8 @@
         </a>
     </div>
     
-    <div class="demo-banner">
-        🚀 <strong>GitHub Pages Demo Version</strong> - Fully functional in Instagram WebView!<br>
-        Data updates every 5 minutes • Real-time search • Mobile optimized
+    <div class="github-notice">
+        🚀 Now powered by GitHub Pages - Works perfectly in Instagram! 🚀
     </div>
     
     <div class="tab-container">
@@ -574,4 +360,614 @@
                     <label for="filter2">🎵 Genre</label>
                     <input type="text" id="filter2" placeholder="Search by genre...">
                 </div>
+                <div class="filter-group">
+                    <label for="filter3">📱 Social Media Link</label>
+                    <input type="text" id="filter3" placeholder="Search social media...">
+                </div>
+                <div class="filter-group">
+                    <label for="filter4">📍 Location</label>
+                    <input type="text" id="filter4" placeholder="Search by location...">
+                </div>
+                <div class="filter-group">
+                    <label for="filter5">🤝 Collaboration</label>
+                    <input type="text" id="filter5" placeholder="Search collaboration...">
+                </div>
+                <div class="filter-group">
+                    <label for="filter6">🔗 Work Links</label>
+                    <input type="text" id="filter6" placeholder="Search work links...">
+                </div>
+                <div class="filter-group">
+                    <label for="filter7">📧 Email</label>
+                    <input type="text" id="filter7" placeholder="Search by email...">
+                </div>
+            </div>
+            
+            <div class="search-actions">
+                <button class="btn btn-secondary" onclick="clearFilters()">Clear All</button>
+            </div>
+        </div>
+        
+        <div class="results-container" id="resultsContainer">
+            <div class="results-header">
+                <span id="resultsCount">Loading Database...</span>
+            </div>
+            <div id="resultsContent">
+                <div class="loading">Loading all artists...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="opportunities-tab" class="tab-content">
+        <div class="results-container" id="opportunitiesContainer">
+            <div class="results-header">
+                <span id="opportunitiesCount">Loading Opportunities...</span>
+            </div>
+            <div id="opportunitiesContent">
+                <div class="loading">Loading opportunities...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURATION =====
+        // TODO: Replace with your actual Google Sheets configuration
+        const CONFIG = {
+            // Your Google Sheets ID (from the URL)
+            SHEET_ID: '1I8BT26PKbx-jKnx9d2HHT7Wrj0jG00y71Ad9eboTjVg',
+            
+            // Your Google API Key
+            API_KEY: 'AIzaSyDtb_OSAHhmGCIj_dqVDS2OC1WSDDy-tgU',
+            
+            // Sheet names (tabs in your Google Sheet)
+            ARTISTS_SHEET: 'Saudi music community',
+            OPPORTUNITIES_SHEET: 'Opportunities for YOU'
+        };
+
+        class DatabaseApp {
+            constructor() {
+                this.currentTab = 'database';
+                this.searchTimeout = null;
+                this.isLoading = false;
+                this.retryCount = 0;
+                this.maxRetries = 3;
+                this.cachedArtists = null;
+                this.cachedOpportunities = null;
+                this.init();
+            }
+            
+            init() {
+                this.loadAllArtists();
+                this.bindEventListeners();
+            }
+            
+            bindEventListeners() {
+                try {
+                    // Enter key search
+                    document.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && this.currentTab === 'database') {
+                            this.performSearch();
+                        }
+                    });
+                    
+                    // Auto-search with debounce
+                    document.querySelectorAll('input[type="text"]').forEach(input => {
+                        const events = ['input', 'paste', 'cut'];
+                        
+                        events.forEach(eventType => {
+                            input.addEventListener(eventType, () => {
+                                if (this.currentTab === 'database') {
+                                    clearTimeout(this.searchTimeout);
+                                    this.searchTimeout = setTimeout(() => {
+                                        this.performSearch();
+                                    }, eventType === 'input' ? 400 : 450);
+                                }
+                            });
+                        });
+                    });
+                } catch (error) {
+                    console.error('Error binding event listeners:', error);
+                }
+            }
+            
+            // ===== GOOGLE SHEETS API INTEGRATION =====
+            async fetchSheetData(sheetName) {
+                try {
+                    if (!CONFIG.SHEET_ID || !CONFIG.API_KEY) {
+                        throw new Error('Google Sheets configuration missing');
+                    }
+                    
+                    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${sheetName}?key=${CONFIG.API_KEY}`;
+                    
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Convert to format similar to Apps Script
+                    if (data.values && data.values.length > 1) {
+                        // Remove header row and filter empty rows
+                        return data.values.slice(1).filter(row => 
+                            row && row[0] && String(row[0]).trim() !== ''
+                        );
+                    }
+                    
+                    return [];
+                } catch (error) {
+                    console.error('Error fetching sheet data:', error);
+                    return this.getFallbackData(sheetName);
+                }
+            }
+            
+            // Fallback sample data for demonstration
+            getFallbackData(sheetName) {
+                if (sheetName === CONFIG.ARTISTS_SHEET) {
+                    return [
+                        ['Ahmed Al-Rashid', 'Singer', 'Pop', 'https://instagram.com/ahmed', 'Riyadh', 'Yes', 'https://soundcloud.com/ahmed', 'ahmed@example.com'],
+                        ['Sarah Music', 'Producer', 'Electronic', 'https://instagram.com/sarah', 'Jeddah', 'Yes', 'https://spotify.com/sarah', 'sarah@example.com'],
+                        ['Mohammad Beats', 'DJ', 'House', 'https://instagram.com/mohammad', 'Dammam', 'No', 'https://mixcloud.com/mohammad', 'mohammad@example.com']
+                    ];
+                } else {
+                    return [
+                        ['Studio Recording Session', 'Open', 'Recording', 'Riyadh', 'Contact: studio@example.com'],
+                        ['Music Festival Performer Needed', 'Open', 'Performance', 'Jeddah', 'Apply: festival@example.com'],
+                        ['Collaboration: Electronic Producer', 'Open', 'Collaboration', 'Online', 'Email: collab@example.com']
+                    ];
+                }
+            }
+            
+            async loadAllArtists() {
+                if (this.isLoading) return;
                 
+                try {
+                    this.isLoading = true;
+                    this.showLoading('results', 'Loading all artists...');
+                    
+                    // Use cached data if available
+                    if (this.cachedArtists) {
+                        this.displayResults(this.cachedArtists, 'results');
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
+                    this.cachedArtists = data;
+                    this.displayResults(data, 'results');
+                    this.isLoading = false;
+                    
+                } catch (error) {
+                    console.error('Error loading artists:', error);
+                    this.isLoading = false;
+                    this.displayError('Failed to load artists. Using sample data.', 'results');
+                    
+                    // Show fallback data
+                    const fallbackData = this.getFallbackData(CONFIG.ARTISTS_SHEET);
+                    this.displayResults(fallbackData, 'results');
+                }
+            }
+            
+            async loadAllOpportunities() {
+                if (this.isLoading) return;
+                
+                try {
+                    this.isLoading = true;
+                    this.showLoading('opportunities', 'Loading opportunities...');
+                    
+                    if (this.cachedOpportunities) {
+                        this.displayResults(this.cachedOpportunities, 'opportunities');
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
+                    this.cachedOpportunities = data;
+                    this.displayResults(data, 'opportunities');
+                    this.isLoading = false;
+                    
+                } catch (error) {
+                    console.error('Error loading opportunities:', error);
+                    this.isLoading = false;
+                    this.displayError('Failed to load opportunities. Using sample data.', 'opportunities');
+                    
+                    const fallbackData = this.getFallbackData(CONFIG.OPPORTUNITIES_SHEET);
+                    this.displayResults(fallbackData, 'opportunities');
+                }
+            }
+            
+            performSearch() {
+                if (this.isLoading) return;
+                
+                try {
+                    const filters = [];
+                    let hasAnyFilter = false;
+                    
+                    for (let i = 0; i < 8; i++) {
+                        const filterInput = document.getElementById('filter' + i);
+                        const filterValue = filterInput ? filterInput.value.trim() : '';
+                        filters.push(filterValue);
+                        
+                        if (filterValue !== '') {
+                            hasAnyFilter = true;
+                        }
+                    }
+                    
+                    if (!hasAnyFilter) {
+                        this.loadAllArtists();
+                        return;
+                    }
+                    
+                    // Filter cached data
+                    if (this.cachedArtists) {
+                        const filtered = this.cachedArtists.filter(row => {
+                            return filters.every((filter, index) => {
+                                const trimmedFilter = String(filter || '').trim();
+                                
+                                if (trimmedFilter === '') {
+                                    return true;
+                                }
+                                
+                                const cellValue = String(row[index] || '').toLowerCase();
+                                const filterValue = trimmedFilter.toLowerCase();
+                                
+                                // Enhanced partial word matching
+                                const searchWords = filterValue.split(/\s+/).filter(word => word.length > 0);
+                                
+                                return searchWords.every(searchWord => {
+                                    return cellValue.includes(searchWord);
+                                });
+                            });
+                        });
+                        
+                        this.displayResults(filtered, 'results');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error in search:', error);
+                    this.displayError('Search failed. Please try again.', 'results');
+                }
+            }
+            
+            switchTab(tabName) {
+                try {
+                    document.querySelectorAll('.tab-content').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    const targetTab = document.getElementById(tabName + '-tab');
+                    if (targetTab) {
+                        targetTab.classList.add('active');
+                    }
+                    
+                    const buttons = document.querySelectorAll('.tab-button');
+                    buttons.forEach(btn => {
+                        if ((btn.textContent.includes('Artist') && tabName === 'database') ||
+                            (btn.textContent.includes('Opportunities') && tabName === 'opportunities')) {
+                            btn.classList.add('active');
+                        }
+                    });
+                    
+                    const subtitle = document.querySelector('.tab-subtitle');
+                    if (subtitle) {
+                        subtitle.classList.toggle('show', tabName === 'database');
+                    }
+                    
+                    this.currentTab = tabName;
+                    
+                    if (tabName === 'opportunities') {
+                        this.loadAllOpportunities();
+                    } else {
+                        this.loadAllArtists();
+                    }
+                } catch (error) {
+                    console.error('Error switching tabs:', error);
+                }
+            }
+            
+            clearFilters() {
+                try {
+                    for (let i = 0; i < 8; i++) {
+                        const input = document.getElementById('filter' + i);
+                        if (input) input.value = '';
+                    }
+                    clearTimeout(this.searchTimeout);
+                    this.loadAllArtists();
+                } catch (error) {
+                    console.error('Error clearing filters:', error);
+                }
+            }
+            
+            showLoading(type, message) {
+                const content = type === 'opportunities' ? 
+                    document.getElementById('opportunitiesContent') : 
+                    document.getElementById('resultsContent');
+                
+                if (content) {
+                    content.innerHTML = `<div class="loading">${message}</div>`;
+                }
+            }
+            
+            displayResults(data, type) {
+                try {
+                    const isOpportunities = type === 'opportunities';
+                    const content = isOpportunities ? 
+                        document.getElementById('opportunitiesContent') : 
+                        document.getElementById('resultsContent');
+                    const counter = isOpportunities ? 
+                        document.getElementById('opportunitiesCount') : 
+                        document.getElementById('resultsCount');
+                    
+                    if (!content || !counter) return;
+                    
+                    if (!data || data.length === 0) {
+                        const message = isOpportunities ? 
+                            'No opportunities available at the moment.' : 
+                            'No results found. Try adjusting your search criteria.';
+                        content.innerHTML = `<div class="no-results">${message}</div>`;
+                        counter.textContent = isOpportunities ? 'No Opportunities' : 'No Results';
+                        return;
+                    }
+                    
+                    const itemType = isOpportunities ? 'Opportunit' : 'Artist';
+                    const suffix = data.length !== 1 ? (isOpportunities ? 'ies' : 's') : (isOpportunities ? 'y' : '');
+                    counter.textContent = `${data.length} ${itemType}${suffix}`;
+                    
+                    this.createTable(content, data, isOpportunities);
+                    
+                } catch (error) {
+                    console.error('Error displaying results:', error);
+                    this.displayError('Error displaying results. Please try again.', type);
+                }
+            }
+            
+            createTable(container, data, isOpportunities) {
+                container.innerHTML = '';
+                
+                const table = document.createElement('table');
+                table.className = 'results-table';
+                
+                // Create header
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                const headers = isOpportunities ? 
+                    ['📋 Opportunity', '📊 Status', '🎵 Type', '📍 Location', '📧 Contact'] :
+                    ['🎤 Name / Stage Name', '👨‍🎨 Role', '🎵 Genre', '📱 Social Media', '📍 Location', '🤝 Collaboration', '🔗 Work Links', '📧 Email'];
+                
+                headers.forEach(headerText => {
+                    const th = document.createElement('th');
+                    th.textContent = headerText;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Create body
+                const tbody = document.createElement('tbody');
+                
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    
+                    const maxCols = isOpportunities ? 5 : 8;
+                    for (let i = 0; i < maxCols; i++) {
+                        const td = document.createElement('td');
+                        const cellValue = row[i] || '';
+                        const cellText = String(cellValue).trim();
+                        
+                        if (this.isEmail(cellText)) {
+                            this.createEmailLinks(cellText, td);
+                        } else if (this.isURL(cellText)) {
+                            this.createWebLink(cellText, td);
+                        } else {
+                            td.textContent = cellText;
+                        }
+                        
+                        tr.appendChild(td);
+                    }
+                    
+                    tbody.appendChild(tr);
+                });
+                
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+            
+            isURL(text) {
+                if (!text || typeof text !== 'string') return false;
+                const str = text.trim();
+                return str.includes('http://') || str.includes('https://') || str.includes('www.') || 
+                       (str.includes('.') && (str.includes('.com') || str.includes('.org') || str.includes('.net') || str.includes('.io')));
+            }
+            
+            isEmail(text) {
+                if (!text || typeof text !== 'string') return false;
+                const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+                return emailRegex.test(text);
+            }
+            
+            createWebLink(url, container) {
+                const link = document.createElement('a');
+                link.href = url.startsWith('http') ? url : 'https://' + url;
+                link.textContent = url.length > 30 ? url.substring(0, 30) + '...' : url;
+                link.target = '_blank';
+                link.rel = 'noopener,noreferrer';
+                container.appendChild(link);
+            }
+            
+            createEmailLinks(text, container) {
+                const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+                const emails = text.match(emailRegex) || [];
+                
+                if (emails.length === 0) {
+                    container.textContent = text;
+                    return;
+                }
+                
+                emails.forEach((email, index) => {
+                    if (index > 0) {
+                        container.appendChild(document.createTextNode(' '));
+                    }
+                    
+                    const link = document.createElement('a');
+                    link.href = `mailto:${email}`;
+                    link.textContent = email;
+                    link.target = '_blank';
+                    link.rel = 'noopener,noreferrer';
+                    container.appendChild(link);
+                });
+            }
+            
+            displayError(errorMessage, type) {
+                const content = type === 'opportunities' ? 
+                    document.getElementById('opportunitiesContent') : 
+                    document.getElementById('resultsContent');
+                
+                const counter = type === 'opportunities' ? 
+                    document.getElementById('opportunitiesCount') : 
+                    document.getElementById('resultsCount');
+                
+                if (content) {
+                    content.innerHTML = `<div class="no-results">${errorMessage}</div>`;
+                }
+                
+                if (counter) {
+                    counter.textContent = 'Error';
+                }
+            }
+        }
+        
+        // Initialize app
+        let app;
+        window.addEventListener('load', function() {
+            try {
+                app = new DatabaseApp();
+                
+                // Configuration check
+                if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE') {
+                    console.warn('Google Sheets not configured - using sample data');
+                    
+                    // Show configuration notice
+                    const notice = document.createElement('div');
+                    notice.className = 'github-notice';
+                    notice.innerHTML = '⚠️ Demo Mode: Configure Google Sheets API to load real data';
+                    document.querySelector('.header').after(notice);
+                }
+            } catch (error) {
+                console.error('Error initializing app:', error);
+                document.body.innerHTML = `
+                    <div style="text-align: center; padding: 50px; font-family: 'Tajawal', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h1 style="color: #1a472a;">🎵 Saudi Music Community Database</h1>
+                        <div style="background: #f0f0f0; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <p><strong>Loading Issue Detected</strong></p>
+                            <p>Please refresh this page or check your internet connection.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        // Global functions for button clicks
+        function switchTab(tabName) {
+            try {
+                if (app) app.switchTab(tabName);
+            } catch (error) {
+                console.error('Error switching tab:', error);
+            }
+        }
+        
+        function clearFilters() {
+            try {
+                if (app) app.clearFilters();
+            } catch (error) {
+                console.error('Error clearing filters:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+            <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Saudi Music Community Database</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-green: #1a472a;
+            --secondary-green: #2d5e3a;
+            --gold: #d4af37;
+            --light-brown: #8b7355;
+            --bg-light: #f7f4f0;
+            --bg-secondary: #ede7df;
+            --shadow-primary: rgba(26, 71, 42, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Tajawal', 'Cairo', 'Arial', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--bg-light) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary-green);
+        }
+        
+        .header h1 {
+            font-family: 'Amiri', 'Times New Roman', serif;
+            background: linear-gradient(45deg, var(--primary-green), var(--secondary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: clamp(2rem, 5vw, 2.8rem);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .goast-link {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 15px 0 25px 0;
+        }
+        
+        .goast-link a {
+            text-decoration: none;
+            display: block;
+            padding: 12px 24px;
+            background: white;
+            color: black;
+            border: 2px solid black;
+            border-radius: 8px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .goast-link a:hover {
+            background: #f0f0f0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
