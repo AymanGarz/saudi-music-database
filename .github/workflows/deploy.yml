@@ -23,10 +23,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
+      - name: Debug secrets (remove in production)
+        run: |
+          echo "Sheet ID length: ${#GOOGLE_SHEET_ID}"
+          echo "API Key length: ${#GOOGLE_API_KEY}"
+          echo "Sheet ID starts with: ${GOOGLE_SHEET_ID:0:10}..."
+          echo "API Key starts with: ${GOOGLE_API_KEY:0:10}..."
+        env:
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        
       - name: Replace API credentials
         run: |
-          sed -i "s/YOUR_GOOGLE_SHEET_ID_HERE/${{ secrets.GOOGLE_SHEET_ID }}/g" index.html
-          sed -i "s/YOUR_GOOGLE_API_KEY_HERE/${{ secrets.GOOGLE_API_KEY }}/g" index.html
+          # Use | as delimiter instead of / to avoid conflicts
+          sed -i "s|YOUR_GOOGLE_SHEET_ID_HERE|$GOOGLE_SHEET_ID|g" index.html
+          sed -i "s|YOUR_GOOGLE_API_KEY_HERE|$GOOGLE_API_KEY|g" index.html
+          
+          # Verify replacement worked
+          if grep -q "YOUR_GOOGLE_SHEET_ID_HERE" index.html; then
+            echo "ERROR: Sheet ID replacement failed"
+            exit 1
+          fi
+          
+          if grep -q "YOUR_GOOGLE_API_KEY_HERE" index.html; then
+            echo "ERROR: API Key replacement failed"
+            exit 1
+          fi
+          
+          echo "✅ Credential replacement successful"
+        env:
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
