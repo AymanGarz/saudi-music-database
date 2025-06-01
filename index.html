@@ -562,80 +562,11 @@
                 this.currentTab = 'database';
                 this.searchTimeout = null;
                 this.isLoading = false;
-                
-                // ENTERPRISE CACHING SYSTEM
-                this.cache = new Map();
-                this.activeRequests = new Map(); // Request deduplication
-                this.cacheConfig = null; // Track config changes
+                this.cachedArtists = null;
+                this.cachedOpportunities = null;
+                this.cacheTimestamp = null;
                 this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-                
                 this.init();
-            }
-            
-            // Generate cache key with config versioning
-            getCacheKey(sheetName) {
-                const configHash = this.hashConfig();
-                return `${sheetName}_${configHash}`;
-            }
-            
-            // Hash config to detect changes
-            hashConfig() {
-                const configStr = `${CONFIG.SHEET_ID}_${CONFIG.API_KEY}_${CONFIG.ARTISTS_SHEET}_${CONFIG.OPPORTUNITIES_SHEET}`;
-                // Simple hash function (for production, use crypto.subtle)
-                let hash = 0;
-                for (let i = 0; i < configStr.length; i++) {
-                    const char = configStr.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32-bit integer
-                }
-                return hash.toString();
-            }
-            
-            // Check if cache is valid
-            isCacheValid(cacheKey) {
-                const cached = this.cache.get(cacheKey);
-                if (!cached) return false;
-                
-                const now = Date.now();
-                const isExpired = (now - cached.timestamp) > this.CACHE_TTL;
-                const isConfigChanged = this.cacheConfig !== this.hashConfig();
-                
-                if (isExpired || isConfigChanged) {
-                    this.cache.delete(cacheKey);
-                    return false;
-                }
-                
-                return cached.data && Array.isArray(cached.data) && cached.isRealData;
-            }
-            
-            // Set cache with metadata
-            setCache(cacheKey, data, isRealData = true) {
-                this.cache.set(cacheKey, {
-                    data: data,
-                    timestamp: Date.now(),
-                    isRealData: isRealData,
-                    configHash: this.hashConfig()
-                });
-                this.cacheConfig = this.hashConfig();
-            }
-            
-            // Get cached data
-            getCache(cacheKey) {
-                if (this.isCacheValid(cacheKey)) {
-                    const cached = this.cache.get(cacheKey);
-                    console.log(`Cache HIT: ${cacheKey} (${cached.data.length} items, age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
-                    return cached.data;
-                }
-                console.log(`Cache MISS: ${cacheKey}`);
-                return null;
-            }
-            
-            // Clear all cache
-            clearCache() {
-                console.log('Clearing all cache');
-                this.cache.clear();
-                this.activeRequests.clear();
-                this.cacheConfig = null;
             }
             
             init() {
@@ -675,11 +606,11 @@
             // ===== GOOGLE SHEETS API INTEGRATION =====
             async fetchSheetData(sheetName) {
                 try {
+                    // Check configuration
                     if (!CONFIG.SHEET_ID || !CONFIG.API_KEY || 
                         CONFIG.SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE' || 
                         CONFIG.API_KEY === 'YOUR_GOOGLE_API_KEY_HERE') {
-                        console.warn('Google Sheets configuration missing - using fallback data');
-                        return this.getFallbackData(sheetName);
+                        throw new Error('Google Sheets API configuration is missing or invalid');
                     }
                     
                     const range = `${sheetName}!A:H`; // Fetch columns A through H
@@ -692,7 +623,7 @@
                     if (!response.ok) {
                         const errorText = await response.text();
                         console.error('API Error:', response.status, errorText);
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(`Google Sheets API error: ${response.status} - ${errorText}`);
                     }
                     
                     const data = await response.json();
@@ -712,162 +643,109 @@
                             });
                         
                         console.log(`Successfully processed ${processedData.length} rows from ${sheetName}`);
-                        
-                        // Additional validation - ensure we got real data
-                        if (processedData.length < 5) {
-                            console.warn('Suspiciously low data count, may be API issue');
-                        }
-                        
                         return processedData;
                     }
                     
-                    console.log('No data found in sheet, using fallback');
-                    return this.getFallbackData(sheetName);
+                    console.log('No data found in sheet');
+                    return [];
                     
                 } catch (error) {
                     console.error('Error fetching sheet data:', error);
-                    console.log('Falling back to sample data due to error');
-                    return this.getFallbackData(sheetName);
+                    throw error; // Re-throw to be handled by calling function
                 }
             }
             
-            // Fallback sample data for demonstration
-            getFallbackData(sheetName) {
-                console.log('Using fallback data for:', sheetName);
-                if (sheetName === CONFIG.ARTISTS_SHEET) {
-                    return [
-                        ['Ahmed Al-Rashid', 'Singer', 'Pop', 'https://instagram.com/ahmed', 'Riyadh', 'Yes', 'https://soundcloud.com/ahmed', 'ahmed@example.com'],
-                        ['Sarah Music', 'Producer', 'Electronic', 'https://instagram.com/sarah', 'Jeddah', 'Yes', 'https://spotify.com/sarah', 'sarah@example.com'],
-                        ['Mohammad Beats', 'DJ', 'House', 'https://instagram.com/mohammad', 'Dammam', 'No', 'https://mixcloud.com/mohammad', 'mohammad@example.com']
-                    ];
-                } else {
-                    return [
-                        ['Studio Recording Session', 'Open', 'Recording', 'Riyadh', 'Contact: studio@example.com'],
-                        ['Music Festival Performer Needed', 'Open', 'Performance', 'Jeddah', 'Apply: festival@example.com'],
-                        ['Collaboration: Electronic Producer', 'Open', 'Collaboration', 'Online', 'Email: collab@example.com']
-                    ];
-                }
+
+            
+            // Check if cache is still valid
+            isCacheValid() {
+                if (!this.cacheTimestamp) return false;
+                const now = Date.now();
+                return (now - this.cacheTimestamp) < this.CACHE_TTL;
+            }
+            
+            // Clear cache when needed
+            clearCache() {
+                this.cachedArtists = null;
+                this.cachedOpportunities = null;
+                this.cacheTimestamp = null;
+                console.log('Cache cleared');
             }
             
             async loadAllArtists() {
-                return this.loadSheetData(CONFIG.ARTISTS_SHEET, 'results');
+                if (this.isLoading) return;
+                
+                try {
+                    this.isLoading = true;
+                    this.showLoading('results', 'Loading artists...');
+                    
+                    // Check if we have valid cached data
+                    if (this.cachedArtists && this.isCacheValid()) {
+                        console.log('Using cached artists data');
+                        this.displayResults(this.cachedArtists, 'results');
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    // Fetch fresh data from API
+                    const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
+                    
+                    if (data && data.length > 0) {
+                        console.log(`Successfully loaded ${data.length} artists from API`);
+                        this.cachedArtists = data;
+                        this.cacheTimestamp = Date.now();
+                        this.displayResults(data, 'results');
+                    } else {
+                        throw new Error('No data received from Google Sheets API');
+                    }
+                    
+                    this.isLoading = false;
+                    
+                } catch (error) {
+                    console.error('Error loading artists:', error);
+                    this.isLoading = false;
+                    this.displayError('Failed to load artists. Please check your connection and API configuration.', 'results');
+                }
             }
             
             async loadAllOpportunities() {
-                return this.loadSheetData(CONFIG.OPPORTUNITIES_SHEET, 'opportunities');
-            }
-            
-            // ENTERPRISE DATA LOADING WITH REQUEST DEDUPLICATION
-            async loadSheetData(sheetName, displayType) {
-                const cacheKey = this.getCacheKey(sheetName);
-                
-                // Check cache first
-                const cachedData = this.getCache(cacheKey);
-                if (cachedData) {
-                    this.displayResults(cachedData, displayType);
-                    return cachedData;
-                }
-                
-                // Request deduplication - prevent multiple simultaneous requests
-                if (this.activeRequests.has(cacheKey)) {
-                    console.log(`Request already in progress for ${cacheKey}, waiting...`);
-                    return this.activeRequests.get(cacheKey);
-                }
-                
-                // Create and track the request
-                const requestPromise = this._performDataLoad(sheetName, displayType, cacheKey);
-                this.activeRequests.set(cacheKey, requestPromise);
+                if (this.isLoading) return;
                 
                 try {
-                    const result = await requestPromise;
-                    return result;
-                } finally {
-                    // Always clean up active request
-                    this.activeRequests.delete(cacheKey);
-                }
-            }
-            
-            async _performDataLoad(sheetName, displayType, cacheKey) {
-                try {
-                    this.showLoading(displayType, `Loading ${sheetName}...`);
+                    this.isLoading = true;
+                    this.showLoading('opportunities', 'Loading opportunities...');
                     
-                    // Check if we have valid configuration
-                    const hasValidConfig = CONFIG.SHEET_ID && CONFIG.API_KEY && 
-                                          CONFIG.SHEET_ID !== 'YOUR_GOOGLE_SHEET_ID_HERE' && 
-                                          CONFIG.API_KEY !== 'YOUR_GOOGLE_API_KEY_HERE';
-                    
-                    if (!hasValidConfig) {
-                        console.log('Invalid configuration, using fallback data');
-                        const fallbackData = this.getFallbackData(sheetName);
-                        this.setCache(cacheKey, fallbackData, false); // Mark as fallback
-                        this.displayResults(fallbackData, displayType);
-                        return fallbackData;
+                    // Check if we have valid cached data
+                    if (this.cachedOpportunities && this.isCacheValid()) {
+                        console.log('Using cached opportunities data');
+                        this.displayResults(this.cachedOpportunities, 'opportunities');
+                        this.isLoading = false;
+                        return;
                     }
                     
-                    // Fetch fresh data
-                    console.log(`Fetching fresh data for ${sheetName}...`);
-                    const data = await this.fetchSheetData(sheetName);
+                    // Fetch fresh data from API
+                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
                     
-                    // Validate data quality
-                    const isRealData = this.validateDataQuality(data, sheetName);
-                    
-                    if (isRealData) {
-                        console.log(`Successfully loaded ${data.length} real items from ${sheetName}`);
-                        this.setCache(cacheKey, data, true);
-                        this.displayResults(data, displayType);
-                        return data;
+                    if (data && data.length > 0) {
+                        console.log(`Successfully loaded ${data.length} opportunities from API`);
+                        this.cachedOpportunities = data;
+                        this.cacheTimestamp = Date.now();
+                        this.displayResults(data, 'opportunities');
                     } else {
-                        console.log(`Data quality check failed for ${sheetName}, using fallback`);
-                        const fallbackData = this.getFallbackData(sheetName);
-                        this.setCache(cacheKey, fallbackData, false);
-                        this.displayResults(fallbackData, displayType);
-                        return fallbackData;
+                        throw new Error('No opportunities data received from Google Sheets API');
                     }
+                    
+                    this.isLoading = false;
                     
                 } catch (error) {
-                    console.error(`Error loading ${sheetName}:`, error);
-                    this.displayError(`Failed to load ${sheetName}. Using sample data.`, displayType);
-                    
-                    const fallbackData = this.getFallbackData(sheetName);
-                    this.setCache(cacheKey, fallbackData, false);
-                    this.displayResults(fallbackData, displayType);
-                    return fallbackData;
+                    console.error('Error loading opportunities:', error);
+                    this.isLoading = false;
+                    this.displayError('Failed to load opportunities. Please check your connection and API configuration.', 'opportunities');
                 }
-            }
-            
-            // Validate data quality instead of magic numbers
-            validateDataQuality(data, sheetName) {
-                if (!Array.isArray(data) || data.length === 0) {
-                    return false;
-                }
-                
-                // Check if this looks like fallback data
-                const fallbackData = this.getFallbackData(sheetName);
-                if (data.length === fallbackData.length) {
-                    // Compare first row to detect fallback data
-                    const firstRow = data[0] || [];
-                    const firstFallbackRow = fallbackData[0] || [];
-                    
-                    if (firstRow[0] === firstFallbackRow[0]) {
-                        console.log('Data appears to be fallback data based on content comparison');
-                        return false;
-                    }
-                }
-                
-                // For artists sheet, expect reasonable number of entries
-                if (sheetName === CONFIG.ARTISTS_SHEET && data.length < 10) {
-                    console.log(`Suspiciously low artist count: ${data.length}`);
-                    return false;
-                }
-                
-                return true;
             }
             
             performSearch() {
-                if (this.activeRequests.size > 0) {
-                    console.log('Search blocked: API requests in progress');
-                    return;
-                }
+                if (this.isLoading) return;
                 
                 try {
                     const filters = [];
@@ -888,12 +766,9 @@
                         return;
                     }
                     
-                    // Get cached data for filtering
-                    const cacheKey = this.getCacheKey(CONFIG.ARTISTS_SHEET);
-                    const cachedData = this.getCache(cacheKey);
-                    
-                    if (cachedData) {
-                        const filtered = cachedData.filter(row => {
+                    // Filter cached data if available
+                    if (this.cachedArtists && this.isCacheValid()) {
+                        const filtered = this.cachedArtists.filter(row => {
                             return filters.every((filter, index) => {
                                 const trimmedFilter = String(filter || '').trim();
                                 
@@ -915,7 +790,7 @@
                         
                         this.displayResults(filtered, 'results');
                     } else {
-                        // No cached data, load first
+                        // No cached data, load first then search will be applied
                         this.loadAllArtists();
                     }
                     
@@ -1147,7 +1022,7 @@
                 // Configuration check
                 if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE' ||
                     !CONFIG.API_KEY || CONFIG.API_KEY === 'YOUR_GOOGLE_API_KEY_HERE') {
-                    console.warn('Google Sheets not configured - using sample data');
+                    console.warn('Google Sheets not configured - API credentials missing');
                 }
             } catch (error) {
                 console.error('Error initializing app:', error);
