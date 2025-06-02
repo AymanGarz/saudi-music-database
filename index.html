@@ -534,9 +534,6 @@
         </div>
         
         <div class="results-container" id="resultsContainer">
-            <div class="results-header">
-                <span id="resultsCount">Loading Database...</span>
-            </div>
             <div id="resultsContent">
                 <div class="loading">Loading all artists...</div>
             </div>
@@ -665,254 +662,189 @@
                     
                     this.hasEventListeners = true;
                 } catch (error) {
-                    console.error('Error binding event listeners:', error);
-                }
-            }
-            
-            async fetchSheetData(sheetName) {
-                try {
-                    if (validateConfig()) {
-                        throw new Error('Google Sheets API configuration is missing or invalid');
-                    }
-                    
-                    const range = `${sheetName}!A:H`;
-                    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(range)}?key=${CONFIG.API_KEY}`;
-                    
-                    console.log('Fetching data from Google Sheets API...');
-                    
-                    const response = await fetchWithTimeout(url, 15000);
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('API Error:', response.status, errorText);
-                        throw new Error(`Google Sheets API error: ${response.status} - ${errorText}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log('Raw API response received:', data.values ? data.values.length : 0, 'rows');
-                    
-                    if (data.values && data.values.length > 1) {
-                        const processedData = data.values.slice(1)
-                            .filter(row => row && row[0] && String(row[0]).trim() !== '')
-                            .map(row => {
-                                const paddedRow = [];
-                                for (let i = 0; i < this.COLUMN_COUNT; i++) {
-                                    paddedRow[i] = row[i] || '';
-                                }
-                                return paddedRow;
-                            });
-                        
-                        console.log(`Successfully processed ${processedData.length} rows from ${sheetName}`);
-                        return processedData;
-                    }
-                    
-                    console.log('No data found in sheet');
-                    return [];
-                    
-                } catch (error) {
-                    console.error('Error fetching sheet data:', error);
-                    throw error;
-                }
-            }
-            
-            setCacheData(cacheType, data) {
-                const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
-                
-                const dataSize = JSON.stringify(data).length;
-                if (dataSize > this.MAX_CACHE_SIZE) {
-                    console.warn(`Cache size exceeded for ${cacheType}: ${(dataSize / 1024 / 1024).toFixed(2)}MB`);
-                }
-                
-                cache.data = data;
-                cache.timestamp = Date.now();
-                console.log(`Cache updated for ${cacheType}: ${(dataSize / 1024).toFixed(2)}KB`);
-            }
-            
-            isCacheValid(cacheType) {
-                const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
-                
-                if (!cache.timestamp) return false;
-                const now = Date.now();
-                return (now - cache.timestamp) < this.CACHE_TTL;
-            }
-            
-            clearCache() {
-                this.artistsCache = {
-                    data: null,
-                    timestamp: null
-                };
-                this.opportunitiesCache = {
-                    data: null,
-                    timestamp: null
-                };
-                console.log('Cache cleared');
-            }
-            
-            async loadAllArtists() {
-                if (this.isLoading) return;
-                
-                try {
-                    this.isLoading = true;
-                    this.showLoading('results', 'Loading artists...');
-                    
-                    if (this.artistsCache.data && this.isCacheValid('artists')) {
-                        console.log('Using cached artists data');
-                        this.displayResults(this.artistsCache.data, 'results');
-                        return;
-                    }
-                    
-                    const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
-                    
-                    if (data && data.length > 0) {
-                        console.log(`Successfully loaded ${data.length} artists from API`);
-                        this.setCacheData('artists', data);
-                        this.displayResults(data, 'results');
-                    } else {
-                        throw new Error('No data received from Google Sheets API');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading artists:', error);
-                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
-                } finally {
-                    this.isLoading = false;
-                }
-            }
-            
-            async loadAllOpportunities() {
-                if (this.isLoading) return;
-                
-                try {
-                    this.isLoading = true;
-                    this.showLoading('opportunities', 'Loading opportunities...');
-                    
-                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
-                        console.log('Using cached opportunities data');
-                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
-                        return;
-                    }
-                    
-                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
-                    
-                    if (data && data.length > 0) {
-                        console.log(`Successfully loaded ${data.length} opportunities from API`);
-                        this.setCacheData('opportunities', data);
-                        this.displayResults(data, 'opportunities');
-                    } else {
-                        throw new Error('No opportunities data received from Google Sheets API');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading opportunities:', error);
-                    this.displayErrorWithRetry('Failed to load opportunities. Please check your connection.', 'opportunities', 'opportunities');
-                } finally {
-                    this.isLoading = false;
-                }
-            }
-            
-            performSearch() {
-                if (this.isLoading) return;
-                
-                try {
-                    const filters = [];
-                    let hasAnyFilter = false;
-                    
-                    for (let i = 0; i < this.COLUMN_COUNT; i++) {
-                        const filterInput = document.getElementById('filter' + i);
-                        const filterValue = filterInput ? filterInput.value.trim() : '';
-                        filters.push(filterValue);
-                        
-                        if (filterValue !== '') {
-                            hasAnyFilter = true;
-                        }
-                    }
-                    
-                    if (!hasAnyFilter) {
-                        this.loadAllArtists();
-                        return;
-                    }
-                    
-                    if (this.artistsCache.data && this.isCacheValid('artists')) {
-                        const filtered = this.artistsCache.data.filter(row => {
-                            return filters.every((filter, index) => {
-                                const trimmedFilter = String(filter || '').trim();
-                                
-                                if (trimmedFilter === '') {
-                                    return true;
-                                }
-                                
-                                const cellValue = String(row[index] || '').toLowerCase();
-                                const filterValue = trimmedFilter.toLowerCase();
-                                
-                                const searchWords = filterValue.split(/\s+/).filter(word => word.length > 0);
-                                
-                                return searchWords.every(searchWord => {
-                                    return cellValue.includes(searchWord);
-                                });
-                            });
-                        });
-                        
-                        this.displayResults(filtered, 'results');
-                    } else {
-                        this.loadAllArtists();
-                    }
-                    
-                } catch (error) {
                     console.error('Error in search:', error);
-                    this.displayError('Search failed. Please try again.', 'results');
+                    
+                    // ENHANCED: Smart error classification and recovery
+                    if (error.message && (error.message.includes('network') || error.message.includes('API') || error.message.includes('fetch'))) {
+                        this.displayUniversalError('Search failed due to connection issue. Please check your internet connection.', 'results', 'retry');
+                    } else if (error.name === 'TypeError' || error.message.includes('undefined')) {
+                        this.displayUniversalError('Search encountered a data error. Try clearing filters or reloading.', 'results', 'both');
+                    } else {
+                        this.displayUniversalError('Search failed unexpectedly. Try clearing search or refreshing if problem persists.', 'results', 'both');
+                    }
+                }
+            }
+                    console.error('Error in search:', error);
+                    
+                    // ENHANCED: Smart error classification and recovery
+                    if (error.message && (error.message.includes('network') || error.message.includes('API') || error.message.includes('fetch'))) {
+                        this.displayUniversalError('Search failed due to connection issue. Please check your internet connection.', 'results', 'retry');
+                    } else if (error.name === 'TypeError' || error.message.includes('undefined')) {
+                        this.displayUniversalError('Search encountered a data error. Try clearing filters or reloading.', 'results', 'both');
+                    } else {
+                        this.displayUniversalError('Search failed unexpectedly. Try clearing search or refreshing if problem persists.', 'results', 'both');
+                    }
                 }
             }
             
             switchTab(tabName) {
                 try {
-                    document.querySelectorAll('.tab-content').forEach(tab => {
-                        tab.classList.remove('active');
-                    });
-                    
-                    document.querySelectorAll('.tab-button').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    
-                    const targetTab = document.getElementById(tabName + '-tab');
-                    if (targetTab) {
-                        targetTab.classList.add('active');
+                    // ENHANCED: Input validation and safety checks
+                    if (!tabName || typeof tabName !== 'string') {
+                        console.error('switchTab: Invalid tabName provided:', tabName);
+                        tabName = 'database'; // Safe fallback
                     }
                     
-                    const buttons = document.querySelectorAll('.tab-button');
-                    buttons.forEach(btn => {
-                        if ((btn.textContent.includes('Artist') && tabName === 'database') ||
-                            (btn.textContent.includes('Opportunities') && tabName === 'opportunities')) {
-                            btn.classList.add('active');
+                    // Validate against known tabs
+                    const validTabs = ['database', 'opportunities'];
+                    if (!validTabs.includes(tabName)) {
+                        console.warn(`switchTab: Unknown tab "${tabName}", defaulting to database`);
+                        tabName = 'database';
+                    }
+                    
+                    // Prevent switching if already loading
+                    if (this.isLoading) {
+                        console.log('switchTab: Operation in progress, ignoring tab switch');
+                        return;
+                    }
+                    
+                    // Safe DOM manipulation with existence checks
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    const tabButtons = document.querySelectorAll('.tab-button');
+                    
+                    if (tabContents.length === 0 || tabButtons.length === 0) {
+                        console.error('switchTab: Required DOM elements not found');
+                        return;
+                    }
+                    
+                    // Remove active classes safely
+                    tabContents.forEach(tab => {
+                        if (tab && tab.classList) {
+                            tab.classList.remove('active');
                         }
                     });
                     
+                    tabButtons.forEach(btn => {
+                        if (btn && btn.classList) {
+                            btn.classList.remove('active');
+                        }
+                    });
+                    
+                    // Activate target tab with existence check
+                    const targetTab = document.getElementById(tabName + '-tab');
+                    if (targetTab && targetTab.classList) {
+                        targetTab.classList.add('active');
+                    } else {
+                        console.error('switchTab: Target tab element not found:', tabName + '-tab');
+                        return;
+                    }
+                    
+                    // Update button states safely
+                    tabButtons.forEach(btn => {
+                        if (btn && btn.textContent && btn.classList) {
+                            if ((btn.textContent.includes('Artist') && tabName === 'database') ||
+                                (btn.textContent.includes('Opportunities') && tabName === 'opportunities')) {
+                                btn.classList.add('active');
+                            }
+                        }
+                    });
+                    
+                    // Handle subtitle visibility
                     const subtitle = document.querySelector('.tab-subtitle');
-                    if (subtitle) {
+                    if (subtitle && subtitle.classList) {
                         subtitle.classList.toggle('show', tabName === 'database');
                     }
                     
+                    // Update current tab state
                     this.currentTab = tabName;
                     
+                    // EXPLICIT: Load appropriate data based on validated tab
                     if (tabName === 'opportunities') {
                         this.loadAllOpportunities();
-                    } else {
+                    } else if (tabName === 'database') {
                         this.loadAllArtists();
                     }
+                    
+                    console.log(`Tab switched successfully to: ${tabName}`);
+                    
                 } catch (error) {
                     console.error('Error switching tabs:', error);
+                    // Safe fallback: ensure we're in a working state
+                    try {
+                        this.currentTab = 'database';
+                        const databaseTab = document.getElementById('database-tab');
+                        if (databaseTab && databaseTab.classList) {
+                            databaseTab.classList.add('active');
+                        }
+                        this.loadAllArtists();
+                    } catch (fallbackError) {
+                        console.error('Critical error in tab switch fallback:', fallbackError);
+                        this.displayUniversalError('Navigation error occurred. Please refresh the page.', 'results', 'refresh');
+                    }
                 }
             }
             
             clearFilters() {
                 try {
+                    console.log('Clearing filters and resetting state...');
+                    
+                    // ENHANCED: Clear all inputs with existence checks
+                    let clearedCount = 0;
                     for (let i = 0; i < this.COLUMN_COUNT; i++) {
                         const input = document.getElementById('filter' + i);
-                        if (input) input.value = '';
+                        if (input && input.value !== undefined) {
+                            input.value = '';
+                            clearedCount++;
+                        } else if (!input) {
+                            console.warn(`clearFilters: Input filter${i} not found`);
+                        }
                     }
-                    clearTimeout(this.searchTimeout);
-                    this.loadAllArtists();
+                    
+                    console.log(`Cleared ${clearedCount} filter inputs`);
+                    
+                    // Clear any pending searches safely
+                    if (this.searchTimeout) {
+                        clearTimeout(this.searchTimeout);
+                        this.searchTimeout = null;
+                        console.log('Cleared pending search timeout');
+                    }
+                    
+                    // ENHANCED: Reset loading state if stuck
+                    if (this.isLoading) {
+                        console.log('Resetting stuck loading state');
+                        this.isLoading = false;
+                    }
+                    
+                    // ENHANCED: Smart reload based on current tab
+                    if (this.currentTab === 'opportunities') {
+                        this.loadAllOpportunities();
+                    } else {
+                        this.loadAllArtists();
+                    }
+                    
+                    console.log('Filters cleared and data reloaded successfully');
+                    
                 } catch (error) {
                     console.error('Error clearing filters:', error);
+                    // ENHANCED: Fallback recovery options
+                    try {
+                        // Try basic input clearing as fallback
+                        const inputs = document.querySelectorAll('input[type="text"]');
+                        inputs.forEach(input => {
+                            if (input) input.value = '';
+                        });
+                        
+                        // Force reload artists as safe default
+                        this.isLoading = false;
+                        this.loadAllArtists();
+                        
+                        console.log('Fallback filter clearing completed');
+                        
+                    } catch (fallbackError) {
+                        console.error('Critical error in clearFilters fallback:', fallbackError);
+                        // Last resort: suggest page refresh
+                        this.displayUniversalError('Unable to clear filters. Page refresh recommended.', 'results', 'refresh');
+                    }
                 }
             }
             
@@ -939,7 +871,9 @@
                         const message = isOpportunities ? 
                             'No opportunities available at the moment.' : 
                             'No results found. Try adjusting your search criteria.';
-                        content.innerHTML = `<div class="no-results">${message}</div>`;
+                        
+                        // ENHANCED: Use universal error method for consistency
+                        this.displayUniversalError(message, type, 'clear');
                         return;
                     }
                     
@@ -1064,30 +998,84 @@
                 });
             }
             
-            displayErrorWithRetry(errorMessage, type, dataType) {
-                const content = type === 'opportunities' ? 
-                    document.getElementById('opportunitiesContent') : 
-                    document.getElementById('resultsContent');
-                
-                if (content) {
+            // ENHANCED: Universal error handling with smart recovery options
+            displayUniversalError(errorMessage, type, actionType = 'clear') {
+                try {
+                    const content = type === 'opportunities' ? 
+                        document.getElementById('opportunitiesContent') : 
+                        document.getElementById('resultsContent');
+                    
+                    if (!content) {
+                        console.error('displayUniversalError: Content container not found for type:', type);
+                        return;
+                    }
+                    
+                    // Validate actionType to prevent undefined button scenarios
+                    const validActionTypes = ['clear', 'retry', 'both', 'refresh'];
+                    if (!validActionTypes.includes(actionType)) {
+                        console.warn('displayUniversalError: Invalid actionType, defaulting to clear:', actionType);
+                        actionType = 'clear';
+                    }
+                    
+                    // Determine correct dataType for retry functions
+                    const dataType = type === 'opportunities' ? 'opportunities' : 'artists';
+                    
+                    // Smart button logic based on context
+                    const buttons = {
+                        'clear': `<button class="btn btn-secondary" onclick="clearFilters()">Clear & Reload</button>`,
+                        'retry': `<button class="btn btn-secondary" onclick="retryLoad('${dataType}')">Try Again</button>`,
+                        'both': `
+                            <button class="btn btn-secondary" onclick="clearFilters()" style="margin-right: 10px;">Clear Search</button>
+                            <button class="btn btn-secondary" onclick="retryLoad('${dataType}')">Reload Data</button>
+                        `,
+                        'refresh': `<button class="btn btn-secondary" onclick="window.location.reload()">Refresh Page</button>`
+                    };
+                    
+                    // Sanitize error message to prevent XSS
+                    const sanitizedMessage = String(errorMessage || 'An error occurred').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    
                     content.innerHTML = `
                         <div class="no-results">
-                            ${errorMessage}
+                            ${sanitizedMessage}
                             <br><br>
-                            <button class="btn btn-secondary" onclick="retryLoad('${dataType}')">Try Again</button>
+                            ${buttons[actionType]}
                         </div>
                     `;
+                    
+                    console.log(`Universal error displayed: ${actionType} for ${type}`);
+                    
+                } catch (error) {
+                    console.error('Error in displayUniversalError:', error);
+                    // Fallback to basic error display
+                    this.displayErrorFallback(errorMessage, type);
                 }
             }
             
-            displayError(errorMessage, type) {
-                const content = type === 'opportunities' ? 
-                    document.getElementById('opportunitiesContent') : 
-                    document.getElementById('resultsContent');
-                
-                if (content) {
-                    content.innerHTML = `<div class="no-results">${errorMessage}</div>`;
+            // FALLBACK: Basic error display if universal method fails
+            displayErrorFallback(errorMessage, type) {
+                try {
+                    const content = type === 'opportunities' ? 
+                        document.getElementById('opportunitiesContent') : 
+                        document.getElementById('resultsContent');
+                    
+                    if (content) {
+                        const sanitizedMessage = String(errorMessage || 'An error occurred').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        content.innerHTML = `<div class="no-results">${sanitizedMessage}</div>`;
+                    }
+                } catch (error) {
+                    console.error('Critical error in fallback display:', error);
                 }
+            }
+            
+            // MAINTAINED: Original methods for backward compatibility
+            displayErrorWithRetry(errorMessage, type, dataType) {
+                // Delegate to universal method for consistency
+                this.displayUniversalError(errorMessage, type, 'retry');
+            }
+            
+            displayError(errorMessage, type) {
+                // Delegate to universal method for consistency
+                this.displayUniversalError(errorMessage, type, 'clear');
             }
         }
         
