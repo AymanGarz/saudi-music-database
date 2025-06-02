@@ -559,9 +559,12 @@
 
         // Shared configuration validation function
         function validateConfig() {
-            return !CONFIG.SHEET_ID || !CONFIG.API_KEY || 
-                   CONFIG.SHEET_ID === 'GOOGLE_SHEET_ID' ||
-                   CONFIG.API_KEY === 'GOOGLE_API_KEY';
+            return !CONFIG.SHEET_ID || 
+                   !CONFIG.API_KEY || 
+                   CONFIG.SHEET_ID === 'PLACEHOLDER_SHEET_ID' ||
+                   CONFIG.API_KEY === 'PLACEHOLDER_API_KEY' ||
+                   CONFIG.SHEET_ID.trim().length < 20 ||
+                   CONFIG.API_KEY.trim().length < 20;
         }
 
         // Utility function for fetch with timeout
