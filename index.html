@@ -334,7 +334,7 @@
         
 
         
-        /* Mobile responsiveness */
+        /* Mobile responsiveness - 4-column layout like desktop */
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -357,20 +357,21 @@
             }
             
             .filters-grid {
-                grid-template-columns: 1fr;
-                gap: 12px;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
                 margin-bottom: 15px;
             }
             
             .filter-group label {
-                font-size: 14px;
-                margin-bottom: 6px;
+                font-size: 10px;
+                margin-bottom: 3px;
+                text-align: center;
             }
             
             .filter-group input {
-                padding: 8px 12px;
-                font-size: 14px;
-                border-radius: 6px;
+                padding: 6px 4px;
+                font-size: 10px;
+                border-radius: 4px;
             }
             
             .search-actions {
@@ -425,12 +426,24 @@
             }
             
             .search-container {
-                padding: 12px;
+                padding: 10px;
+            }
+            
+            .filters-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 6px;
             }
             
             .filter-group input {
-                padding: 6px 10px;
-                font-size: 13px;
+                padding: 4px 2px;
+                font-size: 9px;
+                border-radius: 3px;
+            }
+            
+            .filter-group label {
+                font-size: 8px;
+                margin-bottom: 2px;
+                line-height: 1.1;
             }
             
             .tab-button {
@@ -536,9 +549,6 @@
     
     <div id="opportunities-tab" class="tab-content">
         <div class="results-container" id="opportunitiesContainer">
-            <div class="results-header">
-                <span id="opportunitiesCount">Loading Opportunities...</span>
-            </div>
             <div id="opportunitiesContent">
                 <div class="loading">Loading opportunities...</div>
             </div>
@@ -776,42 +786,6 @@
                     const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
                     
                     if (data && data.length > 0) {
-                        console.log(`Successfully loaded ${data.length} artists from API`);
-                        // STEP 1 FIX: Use new cache management
-                        this.setCacheData('artists', data);
-                        this.displayResults(data, 'results');
-                    } else {
-                        throw new Error('No data received from Google Sheets API');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading artists:', error);
-                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
-                } finally {
-                    // FIX: Always clear loading state
-                    this.isLoading = false;
-                }
-            }
-            
-            async loadAllOpportunities() {
-                // FIX: Prevent concurrent loading  
-                if (this.isLoading) return;
-                
-                try {
-                    this.isLoading = true;
-                    this.showLoading('opportunities', 'Loading opportunities...');
-                    
-                    // STEP 2 FIX: Check opportunities cache specifically
-                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
-                        console.log('Using cached opportunities data');
-                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
-                        return; // Early return, finally block will clean up
-                    }
-                    
-                    // Fetch fresh data from API
-                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
-                    
-                    if (data && data.length > 0) {
                         console.log(`Successfully loaded ${data.length} opportunities from API`);
                         // STEP 1 FIX: Use new cache management
                         this.setCacheData('opportunities', data);
@@ -960,20 +934,15 @@
                         document.getElementById('opportunitiesCount') : 
                         document.getElementById('resultsCount');
                     
-                    if (!content || !counter) return;
+                    if (!content) return;
                     
                     if (!data || data.length === 0) {
                         const message = isOpportunities ? 
                             'No opportunities available at the moment.' : 
                             'No results found. Try adjusting your search criteria.';
                         content.innerHTML = `<div class="no-results">${message}</div>`;
-                        counter.textContent = isOpportunities ? 'No Opportunities' : 'No Results';
                         return;
                     }
-                    
-                    const itemType = isOpportunities ? 'Opportunit' : 'Artist';
-                    const suffix = data.length !== 1 ? (isOpportunities ? 'ies' : 's') : (isOpportunities ? 'y' : '');
-                    counter.textContent = `${data.length} ${itemType}${suffix}`;
                     
                     this.createTable(content, data, isOpportunities);
                     
@@ -989,7 +958,17 @@
                 const table = document.createElement('table');
                 table.className = 'results-table';
                 
-                // Create header
+                // Create header with counter
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'results-header';
+                
+                const itemType = isOpportunities ? 'Opportunit' : 'Artist';
+                const suffix = data.length !== 1 ? (isOpportunities ? 'ies' : 's') : (isOpportunities ? 'y' : '');
+                headerDiv.textContent = `${data.length} ${itemType}${suffix}`;
+                
+                container.appendChild(headerDiv);
+                
+                // Create table header
                 const thead = document.createElement('thead');
                 const headerRow = document.createElement('tr');
                 
@@ -1093,10 +1072,6 @@
                     document.getElementById('opportunitiesContent') : 
                     document.getElementById('resultsContent');
                 
-                const counter = type === 'opportunities' ? 
-                    document.getElementById('opportunitiesCount') : 
-                    document.getElementById('resultsCount');
-                
                 if (content) {
                     content.innerHTML = `
                         <div class="no-results">
@@ -1106,10 +1081,6 @@
                         </div>
                     `;
                 }
-                
-                if (counter) {
-                    counter.textContent = 'Error';
-                }
             }
             
             displayError(errorMessage, type) {
@@ -1117,16 +1088,8 @@
                     document.getElementById('opportunitiesContent') : 
                     document.getElementById('resultsContent');
                 
-                const counter = type === 'opportunities' ? 
-                    document.getElementById('opportunitiesCount') : 
-                    document.getElementById('resultsCount');
-                
                 if (content) {
                     content.innerHTML = `<div class="no-results">${errorMessage}</div>`;
-                }
-                
-                if (counter) {
-                    counter.textContent = 'Error';
                 }
             }
         }
@@ -1188,4 +1151,40 @@
         }
     </script>
 </body>
-</html>
+</html> loaded ${data.length} artists from API`);
+                        // STEP 1 FIX: Use new cache management
+                        this.setCacheData('artists', data);
+                        this.displayResults(data, 'results');
+                    } else {
+                        throw new Error('No data received from Google Sheets API');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading artists:', error);
+                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
+                } finally {
+                    // FIX: Always clear loading state
+                    this.isLoading = false;
+                }
+            }
+            
+            async loadAllOpportunities() {
+                // FIX: Prevent concurrent loading  
+                if (this.isLoading) return;
+                
+                try {
+                    this.isLoading = true;
+                    this.showLoading('opportunities', 'Loading opportunities...');
+                    
+                    // STEP 2 FIX: Check opportunities cache specifically
+                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
+                        console.log('Using cached opportunities data');
+                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
+                        return; // Early return, finally block will clean up
+                    }
+                    
+                    // Fetch fresh data from API
+                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
+                    
+                    if (data && data.length > 0) {
+                        console.log(`Successfully
