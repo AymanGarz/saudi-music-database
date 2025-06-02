@@ -557,15 +557,70 @@
             OPPORTUNITIES_SHEET: 'Opportunities for YOU'
         };
 
+        // Shared configuration validation function
+        function validateConfig() {
+            return !CONFIG.SHEET_ID || !CONFIG.API_KEY || 
+                   CONFIG.SHEET_ID === 'GOOGLE_SHEET_ID' ||
+                   CONFIG.API_KEY === 'GOOGLE_API_KEY';
+        }
+
+        // Utility function for fetch with timeout
+        async function fetchWithTimeout(url, timeoutMs = 15000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timed out after 15 seconds');
+                }
+                throw error;
+            }
+        }
+
+        // URL validation function
+        function isValidURL(text) {
+            if (!text || typeof text !== 'string') return false;
+            const str = text.trim().toLowerCase();
+            
+            // Block dangerous protocols
+            const dangerousProtocols = ['javascript:', 'data:', 'file:', 'vbscript:', 'about:'];
+            if (dangerousProtocols.some(protocol => str.startsWith(protocol))) {
+                return false;
+            }
+            
+            // Allow safe URLs
+            return str.includes('http://') || str.includes('https://') || str.includes('www.') || 
+                   (str.includes('.') && (str.includes('.com') || str.includes('.org') || 
+                   str.includes('.net') || str.includes('.io') || str.includes('.sa')));
+        }
+
         class DatabaseApp {
             constructor() {
                 this.currentTab = 'database';
                 this.searchTimeout = null;
                 this.isLoading = false;
-                this.cachedArtists = null;
-                this.cachedOpportunities = null;
-                this.cacheTimestamp = null;
-                this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+                this.hasEventListeners = false; // FIX: Prevent duplicate event listeners
+                
+                // STEP 1 FIX: Individual cache objects with separate timestamps
+                this.artistsCache = {
+                    data: null,
+                    timestamp: null
+                };
+                this.opportunitiesCache = {
+                    data: null,
+                    timestamp: null
+                };
+                
+                // STEP 3 FIX: TTL updated to 3 minutes
+                this.CACHE_TTL = 3 * 60 * 1000; // 3 minutes (was 5 minutes)
+                this.MAX_CACHE_SIZE = 15 * 1024 * 1024; // 15MB cache limit
+                this.COLUMN_COUNT = 8; // FIX: No more hardcoded values
+                
                 this.init();
             }
             
@@ -575,6 +630,11 @@
             }
             
             bindEventListeners() {
+                // FIX: Prevent duplicate event listeners
+                if (this.hasEventListeners) {
+                    return;
+                }
+                
                 try {
                     // Enter key search
                     document.addEventListener('keypress', (e) => {
@@ -598,6 +658,8 @@
                             });
                         });
                     });
+                    
+                    this.hasEventListeners = true; // Mark as bound
                 } catch (error) {
                     console.error('Error binding event listeners:', error);
                 }
@@ -607,9 +669,7 @@
             async fetchSheetData(sheetName) {
                 try {
                     // Check configuration
-                    if (!CONFIG.SHEET_ID || !CONFIG.API_KEY || 
-                        CONFIG.SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE' || 
-                        CONFIG.API_KEY === 'YOUR_GOOGLE_API_KEY_HERE') {
+                    if (validateConfig()) {
                         throw new Error('Google Sheets API configuration is missing or invalid');
                     }
                     
@@ -618,7 +678,8 @@
                     
                     console.log('Fetching data from Google Sheets API...');
                     
-                    const response = await fetch(url);
+                    // FIX: Add timeout to fetch request
+                    const response = await fetchWithTimeout(url, 15000);
                     
                     if (!response.ok) {
                         const errorText = await response.text();
@@ -634,9 +695,9 @@
                         const processedData = data.values.slice(1) // Remove header row
                             .filter(row => row && row[0] && String(row[0]).trim() !== '') // Filter empty rows
                             .map(row => {
-                                // Ensure each row has 8 columns, fill missing with empty strings
+                                // FIX: Use dynamic column count
                                 const paddedRow = [];
-                                for (let i = 0; i < 8; i++) {
+                                for (let i = 0; i < this.COLUMN_COUNT; i++) {
                                     paddedRow[i] = row[i] || '';
                                 }
                                 return paddedRow;
@@ -655,36 +716,57 @@
                 }
             }
             
-
+            // FIX: Cache size management
+            setCacheData(cacheType, data) {
+                const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
+                
+                // Check cache size
+                const dataSize = JSON.stringify(data).length;
+                if (dataSize > this.MAX_CACHE_SIZE) {
+                    console.warn(`Cache size exceeded for ${cacheType}: ${(dataSize / 1024 / 1024).toFixed(2)}MB`);
+                    // Could implement size reduction here if needed
+                }
+                
+                cache.data = data;
+                cache.timestamp = Date.now();
+                console.log(`Cache updated for ${cacheType}: ${(dataSize / 1024).toFixed(2)}KB`);
+            }
             
-            // Check if cache is still valid
-            isCacheValid() {
-                if (!this.cacheTimestamp) return false;
+            // STEP 2 FIX: Individual cache validation for each data type
+            isCacheValid(cacheType) {
+                const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
+                
+                if (!cache.timestamp) return false;
                 const now = Date.now();
-                return (now - this.cacheTimestamp) < this.CACHE_TTL;
+                return (now - cache.timestamp) < this.CACHE_TTL;
             }
             
             // Clear cache when needed
             clearCache() {
-                this.cachedArtists = null;
-                this.cachedOpportunities = null;
-                this.cacheTimestamp = null;
+                this.artistsCache = {
+                    data: null,
+                    timestamp: null
+                };
+                this.opportunitiesCache = {
+                    data: null,
+                    timestamp: null
+                };
                 console.log('Cache cleared');
             }
             
             async loadAllArtists() {
+                // FIX: Prevent concurrent loading
                 if (this.isLoading) return;
                 
                 try {
                     this.isLoading = true;
                     this.showLoading('results', 'Loading artists...');
                     
-                    // Check if we have valid cached data
-                    if (this.cachedArtists && this.isCacheValid()) {
+                    // STEP 2 FIX: Check artists cache specifically
+                    if (this.artistsCache.data && this.isCacheValid('artists')) {
                         console.log('Using cached artists data');
-                        this.displayResults(this.cachedArtists, 'results');
-                        this.isLoading = false;
-                        return;
+                        this.displayResults(this.artistsCache.data, 'results');
+                        return; // Early return, finally block will clean up
                     }
                     
                     // Fetch fresh data from API
@@ -692,35 +774,35 @@
                     
                     if (data && data.length > 0) {
                         console.log(`Successfully loaded ${data.length} artists from API`);
-                        this.cachedArtists = data;
-                        this.cacheTimestamp = Date.now();
+                        // STEP 1 FIX: Use new cache management
+                        this.setCacheData('artists', data);
                         this.displayResults(data, 'results');
                     } else {
                         throw new Error('No data received from Google Sheets API');
                     }
                     
-                    this.isLoading = false;
-                    
                 } catch (error) {
                     console.error('Error loading artists:', error);
+                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
+                } finally {
+                    // FIX: Always clear loading state
                     this.isLoading = false;
-                    this.displayError('Failed to load artists. Please check your connection and API configuration.', 'results');
                 }
             }
             
             async loadAllOpportunities() {
+                // FIX: Prevent concurrent loading  
                 if (this.isLoading) return;
                 
                 try {
                     this.isLoading = true;
                     this.showLoading('opportunities', 'Loading opportunities...');
                     
-                    // Check if we have valid cached data
-                    if (this.cachedOpportunities && this.isCacheValid()) {
+                    // STEP 2 FIX: Check opportunities cache specifically
+                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
                         console.log('Using cached opportunities data');
-                        this.displayResults(this.cachedOpportunities, 'opportunities');
-                        this.isLoading = false;
-                        return;
+                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
+                        return; // Early return, finally block will clean up
                     }
                     
                     // Fetch fresh data from API
@@ -728,19 +810,19 @@
                     
                     if (data && data.length > 0) {
                         console.log(`Successfully loaded ${data.length} opportunities from API`);
-                        this.cachedOpportunities = data;
-                        this.cacheTimestamp = Date.now();
+                        // STEP 1 FIX: Use new cache management
+                        this.setCacheData('opportunities', data);
                         this.displayResults(data, 'opportunities');
                     } else {
                         throw new Error('No opportunities data received from Google Sheets API');
                     }
                     
-                    this.isLoading = false;
-                    
                 } catch (error) {
                     console.error('Error loading opportunities:', error);
+                    this.displayErrorWithRetry('Failed to load opportunities. Please check your connection.', 'opportunities', 'opportunities');
+                } finally {
+                    // FIX: Always clear loading state
                     this.isLoading = false;
-                    this.displayError('Failed to load opportunities. Please check your connection and API configuration.', 'opportunities');
                 }
             }
             
@@ -751,7 +833,8 @@
                     const filters = [];
                     let hasAnyFilter = false;
                     
-                    for (let i = 0; i < 8; i++) {
+                    // FIX: Use dynamic column count
+                    for (let i = 0; i < this.COLUMN_COUNT; i++) {
                         const filterInput = document.getElementById('filter' + i);
                         const filterValue = filterInput ? filterInput.value.trim() : '';
                         filters.push(filterValue);
@@ -766,9 +849,9 @@
                         return;
                     }
                     
-                    // Filter cached data if available
-                    if (this.cachedArtists && this.isCacheValid()) {
-                        const filtered = this.cachedArtists.filter(row => {
+                    // STEP 2 FIX: Use artists cache specifically for search
+                    if (this.artistsCache.data && this.isCacheValid('artists')) {
+                        const filtered = this.artistsCache.data.filter(row => {
                             return filters.every((filter, index) => {
                                 const trimmedFilter = String(filter || '').trim();
                                 
@@ -842,7 +925,8 @@
             
             clearFilters() {
                 try {
-                    for (let i = 0; i < 8; i++) {
+                    // FIX: Use dynamic column count
+                    for (let i = 0; i < this.COLUMN_COUNT; i++) {
                         const input = document.getElementById('filter' + i);
                         if (input) input.value = '';
                     }
@@ -963,6 +1047,12 @@
             }
             
             createWebLink(url, container) {
+                // FIX: URL validation for security
+                if (!isValidURL(url)) {
+                    container.textContent = url; // Show as text if invalid
+                    return;
+                }
+                
                 const link = document.createElement('a');
                 link.href = url.startsWith('http') ? url : 'https://' + url;
                 link.textContent = url.length > 30 ? url.substring(0, 30) + '...' : url;
@@ -994,6 +1084,31 @@
                 });
             }
             
+            // FIX: Enhanced error display with retry functionality
+            displayErrorWithRetry(errorMessage, type, dataType) {
+                const content = type === 'opportunities' ? 
+                    document.getElementById('opportunitiesContent') : 
+                    document.getElementById('resultsContent');
+                
+                const counter = type === 'opportunities' ? 
+                    document.getElementById('opportunitiesCount') : 
+                    document.getElementById('resultsCount');
+                
+                if (content) {
+                    content.innerHTML = `
+                        <div class="no-results">
+                            ${errorMessage}
+                            <br><br>
+                            <button class="btn btn-secondary" onclick="retryLoad('${dataType}')">Try Again</button>
+                        </div>
+                    `;
+                }
+                
+                if (counter) {
+                    counter.textContent = 'Error';
+                }
+            }
+            
             displayError(errorMessage, type) {
                 const content = type === 'opportunities' ? 
                     document.getElementById('opportunitiesContent') : 
@@ -1020,8 +1135,7 @@
                 app = new DatabaseApp();
                 
                 // Configuration check
-                if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE' ||
-                    !CONFIG.API_KEY || CONFIG.API_KEY === 'YOUR_GOOGLE_API_KEY_HERE') {
+                if (validateConfig()) {
                     console.warn('Google Sheets not configured - API credentials missing');
                 }
             } catch (error) {
@@ -1052,6 +1166,21 @@
                 if (app) app.clearFilters();
             } catch (error) {
                 console.error('Error clearing filters:', error);
+            }
+        }
+        
+        // FIX: Global retry function for error recovery
+        function retryLoad(dataType) {
+            try {
+                if (app) {
+                    if (dataType === 'artists') {
+                        app.loadAllArtists();
+                    } else if (dataType === 'opportunities') {
+                        app.loadAllOpportunities();
+                    }
+                }
+            } catch (error) {
+                console.error('Error retrying load:', error);
             }
         }
     </script>
