@@ -695,7 +695,9 @@
                     
                     // Convert to format and filter empty rows
                     if (data.values && data.values.length > 1) {
-                        const processedData = data.values.slice(1) // Remove header row
+                        // For opportunities sheet, skip 2 rows (empty + header), for artists skip 1 row (header only)
+                        const rowsToSkip = sheetName === CONFIG.OPPORTUNITIES_SHEET ? 2 : 1;
+                        const processedData = data.values.slice(rowsToSkip) // Remove empty/header rows
                             .filter(row => row && row[0] && String(row[0]).trim() !== '') // Filter empty rows
                             .map(row => {
                                 // FIX: Use dynamic column count
