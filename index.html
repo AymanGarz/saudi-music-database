@@ -332,8 +332,6 @@
             color: var(--primary-green);
         }
         
-
-        
         /* Mobile responsiveness - 4-column layout like desktop */
         @media (max-width: 768px) {
             body {
@@ -485,8 +483,6 @@
         </a>
     </div>
     
-
-    
     <div class="tab-container">
         <button class="tab-button active" onclick="switchTab('database')">🎤 Artist Database</button>
         <button class="tab-button" onclick="switchTab('opportunities')">✨ Opportunities for YOU</button>
@@ -617,9 +613,8 @@
                 this.currentTab = 'database';
                 this.searchTimeout = null;
                 this.isLoading = false;
-                this.hasEventListeners = false; // FIX: Prevent duplicate event listeners
+                this.hasEventListeners = false;
                 
-                // STEP 1 FIX: Individual cache objects with separate timestamps
                 this.artistsCache = {
                     data: null,
                     timestamp: null
@@ -629,10 +624,9 @@
                     timestamp: null
                 };
                 
-                // STEP 3 FIX: TTL updated to 3 minutes
-                this.CACHE_TTL = 3 * 60 * 1000; // 3 minutes (was 5 minutes)
+                this.CACHE_TTL = 3 * 60 * 1000; // 3 minutes
                 this.MAX_CACHE_SIZE = 15 * 1024 * 1024; // 15MB cache limit
-                this.COLUMN_COUNT = 8; // FIX: No more hardcoded values
+                this.COLUMN_COUNT = 8;
                 
                 this.init();
             }
@@ -643,20 +637,17 @@
             }
             
             bindEventListeners() {
-                // FIX: Prevent duplicate event listeners
                 if (this.hasEventListeners) {
                     return;
                 }
                 
                 try {
-                    // Enter key search
                     document.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter' && this.currentTab === 'database') {
                             this.performSearch();
                         }
                     });
                     
-                    // Auto-search with debounce
                     document.querySelectorAll('input[type="text"]').forEach(input => {
                         const events = ['input', 'paste', 'cut'];
                         
@@ -672,26 +663,23 @@
                         });
                     });
                     
-                    this.hasEventListeners = true; // Mark as bound
+                    this.hasEventListeners = true;
                 } catch (error) {
                     console.error('Error binding event listeners:', error);
                 }
             }
             
-            // ===== GOOGLE SHEETS API INTEGRATION =====
             async fetchSheetData(sheetName) {
                 try {
-                    // Check configuration
                     if (validateConfig()) {
                         throw new Error('Google Sheets API configuration is missing or invalid');
                     }
                     
-                    const range = `${sheetName}!A:H`; // Fetch columns A through H
+                    const range = `${sheetName}!A:H`;
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(range)}?key=${CONFIG.API_KEY}`;
                     
                     console.log('Fetching data from Google Sheets API...');
                     
-                    // FIX: Add timeout to fetch request
                     const response = await fetchWithTimeout(url, 15000);
                     
                     if (!response.ok) {
@@ -703,12 +691,10 @@
                     const data = await response.json();
                     console.log('Raw API response received:', data.values ? data.values.length : 0, 'rows');
                     
-                    // Convert to format and filter empty rows
                     if (data.values && data.values.length > 1) {
-                        const processedData = data.values.slice(1) // Remove header row
-                            .filter(row => row && row[0] && String(row[0]).trim() !== '') // Filter empty rows
+                        const processedData = data.values.slice(1)
+                            .filter(row => row && row[0] && String(row[0]).trim() !== '')
                             .map(row => {
-                                // FIX: Use dynamic column count
                                 const paddedRow = [];
                                 for (let i = 0; i < this.COLUMN_COUNT; i++) {
                                     paddedRow[i] = row[i] || '';
@@ -725,19 +711,16 @@
                     
                 } catch (error) {
                     console.error('Error fetching sheet data:', error);
-                    throw error; // Re-throw to be handled by calling function
+                    throw error;
                 }
             }
             
-            // FIX: Cache size management
             setCacheData(cacheType, data) {
                 const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
                 
-                // Check cache size
                 const dataSize = JSON.stringify(data).length;
                 if (dataSize > this.MAX_CACHE_SIZE) {
                     console.warn(`Cache size exceeded for ${cacheType}: ${(dataSize / 1024 / 1024).toFixed(2)}MB`);
-                    // Could implement size reduction here if needed
                 }
                 
                 cache.data = data;
@@ -745,7 +728,6 @@
                 console.log(`Cache updated for ${cacheType}: ${(dataSize / 1024).toFixed(2)}KB`);
             }
             
-            // STEP 2 FIX: Individual cache validation for each data type
             isCacheValid(cacheType) {
                 const cache = cacheType === 'artists' ? this.artistsCache : this.opportunitiesCache;
                 
@@ -754,7 +736,6 @@
                 return (now - cache.timestamp) < this.CACHE_TTL;
             }
             
-            // Clear cache when needed
             clearCache() {
                 this.artistsCache = {
                     data: null,
@@ -768,26 +749,53 @@
             }
             
             async loadAllArtists() {
-                // FIX: Prevent concurrent loading
                 if (this.isLoading) return;
                 
                 try {
                     this.isLoading = true;
                     this.showLoading('results', 'Loading artists...');
                     
-                    // STEP 2 FIX: Check artists cache specifically
                     if (this.artistsCache.data && this.isCacheValid('artists')) {
                         console.log('Using cached artists data');
                         this.displayResults(this.artistsCache.data, 'results');
-                        return; // Early return, finally block will clean up
+                        return;
                     }
                     
-                    // Fetch fresh data from API
                     const data = await this.fetchSheetData(CONFIG.ARTISTS_SHEET);
                     
                     if (data && data.length > 0) {
+                        console.log(`Successfully loaded ${data.length} artists from API`);
+                        this.setCacheData('artists', data);
+                        this.displayResults(data, 'results');
+                    } else {
+                        throw new Error('No data received from Google Sheets API');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading artists:', error);
+                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
+                } finally {
+                    this.isLoading = false;
+                }
+            }
+            
+            async loadAllOpportunities() {
+                if (this.isLoading) return;
+                
+                try {
+                    this.isLoading = true;
+                    this.showLoading('opportunities', 'Loading opportunities...');
+                    
+                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
+                        console.log('Using cached opportunities data');
+                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
+                        return;
+                    }
+                    
+                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
+                    
+                    if (data && data.length > 0) {
                         console.log(`Successfully loaded ${data.length} opportunities from API`);
-                        // STEP 1 FIX: Use new cache management
                         this.setCacheData('opportunities', data);
                         this.displayResults(data, 'opportunities');
                     } else {
@@ -798,7 +806,6 @@
                     console.error('Error loading opportunities:', error);
                     this.displayErrorWithRetry('Failed to load opportunities. Please check your connection.', 'opportunities', 'opportunities');
                 } finally {
-                    // FIX: Always clear loading state
                     this.isLoading = false;
                 }
             }
@@ -810,7 +817,6 @@
                     const filters = [];
                     let hasAnyFilter = false;
                     
-                    // FIX: Use dynamic column count
                     for (let i = 0; i < this.COLUMN_COUNT; i++) {
                         const filterInput = document.getElementById('filter' + i);
                         const filterValue = filterInput ? filterInput.value.trim() : '';
@@ -826,7 +832,6 @@
                         return;
                     }
                     
-                    // STEP 2 FIX: Use artists cache specifically for search
                     if (this.artistsCache.data && this.isCacheValid('artists')) {
                         const filtered = this.artistsCache.data.filter(row => {
                             return filters.every((filter, index) => {
@@ -839,7 +844,6 @@
                                 const cellValue = String(row[index] || '').toLowerCase();
                                 const filterValue = trimmedFilter.toLowerCase();
                                 
-                                // Enhanced partial word matching
                                 const searchWords = filterValue.split(/\s+/).filter(word => word.length > 0);
                                 
                                 return searchWords.every(searchWord => {
@@ -850,7 +854,6 @@
                         
                         this.displayResults(filtered, 'results');
                     } else {
-                        // No cached data, load first then search will be applied
                         this.loadAllArtists();
                     }
                     
@@ -902,7 +905,6 @@
             
             clearFilters() {
                 try {
-                    // FIX: Use dynamic column count
                     for (let i = 0; i < this.COLUMN_COUNT; i++) {
                         const input = document.getElementById('filter' + i);
                         if (input) input.value = '';
@@ -930,9 +932,6 @@
                     const content = isOpportunities ? 
                         document.getElementById('opportunitiesContent') : 
                         document.getElementById('resultsContent');
-                    const counter = isOpportunities ? 
-                        document.getElementById('opportunitiesCount') : 
-                        document.getElementById('resultsCount');
                     
                     if (!content) return;
                     
@@ -955,9 +954,6 @@
             createTable(container, data, isOpportunities) {
                 container.innerHTML = '';
                 
-                const table = document.createElement('table');
-                table.className = 'results-table';
-                
                 // Create header with counter
                 const headerDiv = document.createElement('div');
                 headerDiv.className = 'results-header';
@@ -967,6 +963,9 @@
                 headerDiv.textContent = `${data.length} ${itemType}${suffix}`;
                 
                 container.appendChild(headerDiv);
+                
+                const table = document.createElement('table');
+                table.className = 'results-table';
                 
                 // Create table header
                 const thead = document.createElement('thead');
@@ -1029,9 +1028,8 @@
             }
             
             createWebLink(url, container) {
-                // FIX: URL validation for security
                 if (!isValidURL(url)) {
-                    container.textContent = url; // Show as text if invalid
+                    container.textContent = url;
                     return;
                 }
                 
@@ -1066,7 +1064,6 @@
                 });
             }
             
-            // FIX: Enhanced error display with retry functionality
             displayErrorWithRetry(errorMessage, type, dataType) {
                 const content = type === 'opportunities' ? 
                     document.getElementById('opportunitiesContent') : 
@@ -1100,7 +1097,6 @@
             try {
                 app = new DatabaseApp();
                 
-                // Configuration check
                 if (validateConfig()) {
                     console.warn('Google Sheets not configured - API credentials missing');
                 }
@@ -1135,7 +1131,6 @@
             }
         }
         
-        // FIX: Global retry function for error recovery
         function retryLoad(dataType) {
             try {
                 if (app) {
@@ -1151,40 +1146,4 @@
         }
     </script>
 </body>
-</html> loaded ${data.length} artists from API`);
-                        // STEP 1 FIX: Use new cache management
-                        this.setCacheData('artists', data);
-                        this.displayResults(data, 'results');
-                    } else {
-                        throw new Error('No data received from Google Sheets API');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading artists:', error);
-                    this.displayErrorWithRetry('Failed to load artists. Please check your connection.', 'results', 'artists');
-                } finally {
-                    // FIX: Always clear loading state
-                    this.isLoading = false;
-                }
-            }
-            
-            async loadAllOpportunities() {
-                // FIX: Prevent concurrent loading  
-                if (this.isLoading) return;
-                
-                try {
-                    this.isLoading = true;
-                    this.showLoading('opportunities', 'Loading opportunities...');
-                    
-                    // STEP 2 FIX: Check opportunities cache specifically
-                    if (this.opportunitiesCache.data && this.isCacheValid('opportunities')) {
-                        console.log('Using cached opportunities data');
-                        this.displayResults(this.opportunitiesCache.data, 'opportunities');
-                        return; // Early return, finally block will clean up
-                    }
-                    
-                    // Fetch fresh data from API
-                    const data = await this.fetchSheetData(CONFIG.OPPORTUNITIES_SHEET);
-                    
-                    if (data && data.length > 0) {
-                        console.log(`Successfully
+</html>
