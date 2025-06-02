@@ -3,16 +3,13 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: "pages"
   cancel-in-progress: false
-
 jobs:
   deploy:
     environment:
@@ -35,22 +32,30 @@ jobs:
         
       - name: Replace API credentials
         run: |
-          # Use | as delimiter instead of / to avoid conflicts
-          sed -i "s|YOUR_GOOGLE_SHEET_ID_HERE|$GOOGLE_SHEET_ID|g" index.html
-          sed -i "s|YOUR_GOOGLE_API_KEY_HERE|$GOOGLE_API_KEY|g" index.html
+          # FIXED: Use the correct placeholders that match your HTML file
+          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" index.html
+          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" index.html
           
           # Verify replacement worked
-          if grep -q "YOUR_GOOGLE_SHEET_ID_HERE" index.html; then
+          if grep -q "GOOGLE_SHEET_ID" index.html; then
             echo "ERROR: Sheet ID replacement failed"
+            grep -n "GOOGLE_SHEET_ID" index.html
             exit 1
           fi
           
-          if grep -q "YOUR_GOOGLE_API_KEY_HERE" index.html; then
+          if grep -q "GOOGLE_API_KEY" index.html; then
             echo "ERROR: API Key replacement failed"
+            grep -n "GOOGLE_API_KEY" index.html
             exit 1
           fi
           
           echo "✅ Credential replacement successful"
+          
+          # Optional: Show first few characters of replaced values for verification
+          echo "Verification - Sheet ID in file starts with:"
+          grep -o "SHEET_ID.*" index.html | head -1 | cut -c1-30
+          echo "Verification - API Key in file starts with:"
+          grep -o "API_KEY.*" index.html | head -1 | cut -c1-30
         env:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
