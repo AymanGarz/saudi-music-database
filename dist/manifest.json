@@ -1,0 +1,32 @@
+{
+  "name": "Saudi Music Community Database",
+  "short_name": "Saudi Music DB",
+  "description": "Connect with Saudi music artists and find opportunities",
+  "lang": "en",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1a472a",
+  "background_color": "#f7f4f0",
+  "icons": [
+    {
+      "src": "GOASTFLOWER_LOGO.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "social", "productivity"],
+  "screenshots": [
+    {
+      "src": "GOASTFLOWER_LOGO.png",
+      "sizes": "any",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "scope": "/",
+  "id": "saudi-music-community-db"
+}
