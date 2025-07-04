@@ -30,32 +30,48 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         
-      - name: Replace API credentials
+      - name: Replace API credentials in JavaScript files
         run: |
-          # FIXED: Use the correct placeholders that match your HTML file
-          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" index.html
-          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" index.html
+          # FIXED: Replace in the correct JavaScript files, not HTML
+          echo "Replacing credentials in app.js..."
+          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" app.js
+          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" app.js
           
-          # Verify replacement worked
-          if grep -q "GOOGLE_SHEET_ID" index.html; then
-            echo "ERROR: Sheet ID replacement failed"
-            grep -n "GOOGLE_SHEET_ID" index.html
+          echo "Replacing credentials in dist/app.min.js..."
+          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" dist/app.min.js
+          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" dist/app.min.js
+          
+          # Verify replacement worked in app.js
+          if grep -q "GOOGLE_SHEET_ID" app.js; then
+            echo "ERROR: Sheet ID replacement failed in app.js"
+            grep -n "GOOGLE_SHEET_ID" app.js
             exit 1
           fi
           
-          if grep -q "GOOGLE_API_KEY" index.html; then
-            echo "ERROR: API Key replacement failed"
-            grep -n "GOOGLE_API_KEY" index.html
+          if grep -q "GOOGLE_API_KEY" app.js; then
+            echo "ERROR: API Key replacement failed in app.js"
+            grep -n "GOOGLE_API_KEY" app.js
             exit 1
           fi
           
-          echo "✅ Credential replacement successful"
+          # Verify replacement worked in dist/app.min.js
+          if grep -q "GOOGLE_SHEET_ID" dist/app.min.js; then
+            echo "ERROR: Sheet ID replacement failed in dist/app.min.js"
+            exit 1
+          fi
           
-          # Optional: Show first few characters of replaced values for verification
-          echo "Verification - Sheet ID in file starts with:"
-          grep -o "SHEET_ID.*" index.html | head -1 | cut -c1-30
-          echo "Verification - API Key in file starts with:"
-          grep -o "API_KEY.*" index.html | head -1 | cut -c1-30
+          if grep -q "GOOGLE_API_KEY" dist/app.min.js; then
+            echo "ERROR: API Key replacement failed in dist/app.min.js"
+            exit 1
+          fi
+          
+          echo "✅ Credential replacement successful in all JavaScript files"
+          
+          # Optional: Show verification (first 30 chars for security)
+          echo "Verification - Sheet ID in app.js:"
+          grep -o "SHEET_ID.*" app.js | head -1 | cut -c1-30
+          echo "Verification - API Key in app.js:"
+          grep -o "API_KEY.*" app.js | head -1 | cut -c1-30
         env:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
