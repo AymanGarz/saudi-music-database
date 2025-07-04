@@ -1,0 +1,36 @@
+{
+  "name": "saudi-music-community-database",
+  "version": "1.0.0",
+  "description": "Performance-optimized Saudi Music Community Database",
+  "main": "index.html",
+  "scripts": {
+    "build": "node optimize.js",
+    "dev": "node -e \"console.log('Starting development server...'); console.log('Open index.html in your browser or use a local web server');\"",
+    "test": "echo \"No tests specified\"",
+    "analyze": "node -e \"const fs = require('fs'); const files = ['styles.css', 'app.js', 'index.html']; files.forEach(f => { if(fs.existsSync(f)) { const size = fs.statSync(f).size; console.log(f + ': ' + Math.round(size/1024*100)/100 + ' KB'); } });\""
+  },
+  "keywords": [
+    "music",
+    "database",
+    "saudi",
+    "community",
+    "performance",
+    "pwa"
+  ],
+  "author": "Saudi Music Community",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/saudi-music-database.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/saudi-music-database/issues"
+  },
+  "homepage": "https://your-username.github.io/saudi-music-database"
+}
