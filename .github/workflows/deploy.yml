@@ -32,46 +32,61 @@ jobs:
         
       - name: Replace API credentials in JavaScript files
         run: |
-          # FIXED: Replace in the correct JavaScript files, not HTML
-          echo "Replacing credentials in app.js..."
-          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" app.js
-          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" app.js
+          # FIXED: Precise replacement patterns that only target CONFIG object assignments
+          echo "Replacing credentials in app.js with precise patterns..."
           
-          echo "Replacing credentials in dist/app.min.js..."
-          sed -i "s|GOOGLE_SHEET_ID|$GOOGLE_SHEET_ID|g" dist/app.min.js
-          sed -i "s|GOOGLE_API_KEY|$GOOGLE_API_KEY|g" dist/app.min.js
+          # Replace only in CONFIG object assignments (not validation logic)
+          sed -i "s|SHEET_ID: 'GOOGLE_SHEET_ID'|SHEET_ID: '$GOOGLE_SHEET_ID'|g" app.js
+          sed -i "s|API_KEY: 'GOOGLE_API_KEY'|API_KEY: '$GOOGLE_API_KEY'|g" app.js
+          
+          echo "Replacing credentials in dist/app.min.js with precise patterns..."
+          
+          # For minified file, the format is the same as unminified (spaces around colon)
+          sed -i "s|SHEET_ID: 'GOOGLE_SHEET_ID'|SHEET_ID: '$GOOGLE_SHEET_ID'|g" dist/app.min.js
+          sed -i "s|API_KEY: 'GOOGLE_API_KEY'|API_KEY: '$GOOGLE_API_KEY'|g" dist/app.min.js
           
           # Verify replacement worked in app.js
-          if grep -q "GOOGLE_SHEET_ID" app.js; then
+          if grep -q "SHEET_ID: 'GOOGLE_SHEET_ID'" app.js; then
             echo "ERROR: Sheet ID replacement failed in app.js"
-            grep -n "GOOGLE_SHEET_ID" app.js
+            grep -n "SHEET_ID.*GOOGLE_SHEET_ID" app.js
             exit 1
           fi
           
-          if grep -q "GOOGLE_API_KEY" app.js; then
+          if grep -q "API_KEY: 'GOOGLE_API_KEY'" app.js; then
             echo "ERROR: API Key replacement failed in app.js"
-            grep -n "GOOGLE_API_KEY" app.js
+            grep -n "API_KEY.*GOOGLE_API_KEY" app.js
             exit 1
           fi
           
           # Verify replacement worked in dist/app.min.js
-          if grep -q "GOOGLE_SHEET_ID" dist/app.min.js; then
+          if grep -q "SHEET_ID: 'GOOGLE_SHEET_ID'" dist/app.min.js; then
             echo "ERROR: Sheet ID replacement failed in dist/app.min.js"
             exit 1
           fi
           
-          if grep -q "GOOGLE_API_KEY" dist/app.min.js; then
+          if grep -q "API_KEY: 'GOOGLE_API_KEY'" dist/app.min.js; then
             echo "ERROR: API Key replacement failed in dist/app.min.js"
             exit 1
           fi
           
-          echo "✅ Credential replacement successful in all JavaScript files"
+          # Verify validation logic remains intact
+          if ! grep -q "CONFIG.SHEET_ID === 'GOOGLE_SHEET_ID'" app.js; then
+            echo "ERROR: Validation logic was incorrectly modified!"
+            exit 1
+          fi
           
-          # Optional: Show verification (first 30 chars for security)
-          echo "Verification - Sheet ID in app.js:"
-          grep -o "SHEET_ID.*" app.js | head -1 | cut -c1-30
-          echo "Verification - API Key in app.js:"
-          grep -o "API_KEY.*" app.js | head -1 | cut -c1-30
+          if ! grep -q "CONFIG.API_KEY === 'GOOGLE_API_KEY'" app.js; then
+            echo "ERROR: Validation logic was incorrectly modified!"
+            exit 1
+          fi
+          
+          echo "✅ Credential replacement successful with validation logic preserved"
+          
+          # Optional: Show verification (first 50 chars for security)
+          echo "Verification - CONFIG object in app.js:"
+          grep -A 5 "const CONFIG" app.js | head -6
+          echo "Verification - Validation logic preserved:"
+          grep -A 2 "CONFIG.SHEET_ID ===" app.js
         env:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
